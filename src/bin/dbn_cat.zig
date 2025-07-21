@@ -13,6 +13,7 @@ const Format = enum {
     csv,
     tsv,
     json,
+    zon,
 };
 
 pub fn main() !void {
@@ -37,7 +38,7 @@ pub fn main() !void {
     const file_path = args[1];
 
     const format = if (args.len < 3) Format.any else std.meta.stringToEnum(Format, args[2]) orelse {
-        std.debug.print("Error: Unknown format '{s}'. Use 'meta', 'any', 'csv', 'tsv', or 'json'\n", .{args[2]});
+        std.debug.print("Error: Unknown format '{s}'. Use 'meta', 'any', 'csv', 'tsv', 'json', or 'zon'\n", .{args[2]});
         return error.InvalidFormat;
     };
 
@@ -87,9 +88,7 @@ pub fn main() !void {
         };
         switch (format) {
             .meta => unreachable,
-            .any => {
-                try writer.print("Record {d}: {any} {any}\n", .{ record_count, hd, rec });
-            },
+            .any => try writer.print("Record {d}: {any} {any}\n", .{ record_count, hd, rec }),
             .csv => {
                 if (record_count == 1) {
                     try rec.printCsvHeader(writer);
@@ -102,9 +101,8 @@ pub fn main() !void {
                 }
                 try rec.printTsvRow(writer);
             },
-            .json => {
-                try rec.printJson(writer);
-            },
+            .json => try rec.printJson(writer),
+            .zon => try rec.printZon(writer),
         }
     }
 

@@ -139,6 +139,46 @@ pub const Record = union(enum) {
             },
         }
     }
+
+    pub fn printZon(self: Self, writer: *std.io.Writer) !void {
+        switch (self) {
+            inline else => |v| switch (v) {
+                inline else => |r| {
+                    try writer.writeAll(".{ ");
+                    const info = @typeInfo(@TypeOf(r)).@"struct";
+                    inline for (info.fields, 1..) |field, i| {
+                        const fieldType = @FieldType(@TypeOf(r), field.name);
+                        const fieldValue = @field(r, field.name);
+                        try writer.writeByte('.');
+                        try writer.writeAll(field.name);
+                        try writer.writeAll(" = ");
+                        if (i == 1) {
+                            try writer.writeAll(".{ ");
+                            const rh = @field(r, field.name);
+                            const fields = @typeInfo(fieldType).@"struct".fields;
+                            inline for (fields, 1..) |header, j| {
+                                const headerValue = @field(rh, header.name);
+                                try writer.writeByte('.');
+                                try writer.writeAll(header.name);
+                                try writer.writeAll(" = ");
+                                try writer.print("{any}", .{headerValue});
+                                if (j < fields.len) {
+                                    try writer.writeAll(", ");
+                                }
+                            }
+                            try writer.writeAll(" },");
+                        } else {
+                            try writer.print("{any}", .{fieldValue});
+                            if (i < info.fields.len) {
+                                try writer.writeAll(", ");
+                            }
+                        }
+                    }
+                    try writer.writeAll(" }\n");
+                },
+            },
+        }
+    }
 };
 
 pub fn readRecord(reader: anytype, version: Version) !?Record {
