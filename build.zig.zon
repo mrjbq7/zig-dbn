@@ -1,0 +1,13 @@
+.{
+    .name = .dbn,
+    .version = "0.0.0",
+    .fingerprint = 0x4d5eff949e9062f4,
+    .minimum_zig_version = "0.15.0-dev.864+75d0ec9c0",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+    },
+}
