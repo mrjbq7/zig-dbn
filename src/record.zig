@@ -31,7 +31,7 @@ pub const Record = union(enum) {
     v2: v2.RecordV2,
     v3: v3.RecordV3,
 
-    pub fn printCsvHeader(self: Self, writer: *std.io.Writer) !void {
+    pub fn printSvHeader(self: Self, writer: *std.io.Writer, sep: u8) !void {
         switch (self) {
             inline else => |v| switch (v) {
                 inline else => |r| {
@@ -41,11 +41,11 @@ pub const Record = union(enum) {
                             const value = @FieldType(@TypeOf(r), field.name);
                             inline for (@typeInfo(value).@"struct".fields) |header| {
                                 try writer.writeAll(header.name);
-                                try writer.writeByte(',');
+                                try writer.writeByte(sep);
                             }
                         } else {
                             try writer.writeAll(field.name);
-                            try writer.writeByte(if (i < info.fields.len) ',' else '\n');
+                            try writer.writeByte(if (i < info.fields.len) sep else '\n');
                         }
                     }
                 },
@@ -53,7 +53,7 @@ pub const Record = union(enum) {
         }
     }
 
-    pub fn printCsvRow(self: Self, writer: *std.io.Writer) !void {
+    pub fn printSvRow(self: Self, writer: *std.io.Writer, sep: u8) !void {
         switch (self) {
             inline else => |v| switch (v) {
                 inline else => |r| {
@@ -63,16 +63,32 @@ pub const Record = union(enum) {
                             const rh = @field(r, field.name);
                             const value = @FieldType(@TypeOf(r), field.name);
                             inline for (@typeInfo(value).@"struct".fields) |header| {
-                                try writer.print("{any},", .{@field(rh, header.name)});
+                                try writer.print("{any}{c}", .{ @field(rh, header.name), sep });
                             }
                         } else {
                             try writer.print("{any}", .{@field(r, field.name)});
-                            try writer.writeByte(if (i < info.fields.len) ',' else '\n');
+                            try writer.writeByte(if (i < info.fields.len) sep else '\n');
                         }
                     }
                 },
             },
         }
+    }
+
+    pub fn printCsvHeader(self: Self, writer: *std.io.Writer) !void {
+        return self.printSvHeader(writer, ',');
+    }
+
+    pub fn printCsvRow(self: Self, writer: *std.io.Writer) !void {
+        return self.printSvRow(writer, ',');
+    }
+
+    pub fn printTsvHeader(self: Self, writer: *std.io.Writer) !void {
+        return self.printSvHeader(writer, '\t');
+    }
+
+    pub fn printTsvRow(self: Self, writer: *std.io.Writer) !void {
+        return self.printSvRow(writer, '\t');
     }
 
     pub fn printJson(self: Self, writer: *std.io.Writer) !void {
