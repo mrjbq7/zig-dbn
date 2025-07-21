@@ -9,6 +9,14 @@ pub fn build(b: *std.Build) !void {
         .target = target,
     });
 
+    const lib = b.addLibrary(.{
+        .name = "dbn",
+        .root_module = mod,
+        .linkage = .static,
+    });
+
+    b.installArtifact(lib);
+
     var iter: SrcIterator = try .init(b, "src/bin");
     defer iter.deinit();
 
@@ -41,7 +49,7 @@ pub fn build(b: *std.Build) !void {
 
     const docs_step = b.step("docs", "Build docs");
     const install_docs = b.addInstallDirectory(.{
-        .source_dir = unit_tests.getEmittedDocs(),
+        .source_dir = lib.getEmittedDocs(),
         .install_dir = .prefix,
         .install_subdir = "docs",
     });
