@@ -6,3 +6,19 @@ Support for working with [Databento](https://databento.com) APIs and data
 files in their [Databento Binary
 Encoding](https://databento.com/docs/standards-and-conventions/databento-binary-encoding)
 file format.
+
+## Quick Start
+
+```zig
+const dbn = @import("dbn");
+
+// Open a DBN records file as an iterator
+var iter = try dbn.iter.RecordIterator.init(allocator, path);
+defer iter.deinit();
+
+// Iterate through all the records
+var record_count: usize = 0;
+while (try iter.next()) |record| {
+    _ = record;
+}
+```
