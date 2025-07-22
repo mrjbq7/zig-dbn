@@ -17,8 +17,7 @@ var iter = try dbn.iter.RecordIterator.init(allocator, path);
 defer iter.deinit();
 
 // Iterate through all the records
-var record_count: usize = 0;
 while (try iter.next()) |record| {
-    _ = record;
+    std.debug.print("{any}\n", .{record});
 }
 ```
