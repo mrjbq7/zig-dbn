@@ -1,20 +1,14 @@
 const std = @import("std");
 const testing = std.testing;
-const metadata = @import("metadata.zig");
-const record = @import("record.zig");
-const dbz = @import("dbz.zig");
+
+const RecordIterator = @import("iter.zig").RecordIterator;
 
 test "test_data.definition.dbn" {
     const allocator = testing.allocator;
 
-    // Open the test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.definition.dbn", .{});
-    defer file.close();
-    const reader = file.deprecatedReader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.definition.dbn");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents
     try testing.expectEqual(.v2, meta.version);
@@ -36,21 +30,21 @@ test "test_data.definition.dbn" {
     // Check first few intervals
     try testing.expectEqual(20211004, meta.mappings[0].intervals[0].start_ts);
     try testing.expectEqual(20211005, meta.mappings[0].intervals[0].end_ts);
-    try testing.expectEqualStrings("6819", meta.mappings[0].intervals[0].symbol);
+    try testing.expectEqual(6819, meta.mappings[0].intervals[0].instrument_id);
 
     try testing.expectEqual(20211005, meta.mappings[0].intervals[1].start_ts);
     try testing.expectEqual(20211006, meta.mappings[0].intervals[1].end_ts);
-    try testing.expectEqualStrings("6830", meta.mappings[0].intervals[1].symbol);
+    try testing.expectEqual(6830, meta.mappings[0].intervals[1].instrument_id);
 
     // Check last interval
     try testing.expectEqual(20220103, meta.mappings[0].intervals[61].start_ts);
     try testing.expectEqual(20220104, meta.mappings[0].intervals[61].end_ts);
-    try testing.expectEqualStrings("7119", meta.mappings[0].intervals[61].symbol);
+    try testing.expectEqual(7119, meta.mappings[0].intervals[61].instrument_id);
 
     // TODO: FIX THIS TEST
 
     // // Read first definition record
-    // const record1 = try meta.readRecord(file.deprecatedReader());
+    // const record1 = try iter.next();
     // try testing.expect(record1 != null);
     // try testing.expect(record1.? == .instrument_def);
 
@@ -66,15 +60,9 @@ test "test_data.definition.dbn" {
 test "test_data.definition.dbz" {
     const allocator = testing.allocator;
 
-    // Open the test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.definition.dbz", .{});
-    defer file.close();
-
-    const file_reader = file.deprecatedReader();
-
-    // Read metadata
-    var meta = try dbz.readMetadata(allocator, file_reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.definition.dbz");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents
     try testing.expectEqual(.v1, meta.version);
@@ -96,26 +84,21 @@ test "test_data.definition.dbz" {
     // Check first few intervals
     try testing.expectEqual(20221004, meta.mappings[0].intervals[0].start_ts);
     try testing.expectEqual(20221205, meta.mappings[0].intervals[0].end_ts);
-    try testing.expectEqualStrings("7358", meta.mappings[0].intervals[0].symbol);
+    try testing.expectEqual(7358, meta.mappings[0].intervals[0].instrument_id);
 
     try testing.expectEqual(20221205, meta.mappings[0].intervals[1].start_ts);
     try testing.expectEqual(20221206, meta.mappings[0].intervals[1].end_ts);
-    try testing.expectEqualStrings("7236", meta.mappings[0].intervals[1].symbol);
+    try testing.expectEqual(7236, meta.mappings[0].intervals[1].instrument_id);
 
     // Check last interval
     try testing.expectEqual(20230103, meta.mappings[0].intervals[19].start_ts);
     try testing.expectEqual(20230104, meta.mappings[0].intervals[19].end_ts);
-    try testing.expectEqualStrings("7084", meta.mappings[0].intervals[19].symbol);
+    try testing.expectEqual(7084, meta.mappings[0].intervals[19].instrument_id);
 
     // TODO: FIX THIS TEST
     //
-    // Create a decompressor with window buffer
-    // var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    // var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    // const reader = decompressor.reader();
-
     // // Read first definition record
-    // const record1 = try meta.readRecord(reader);
+    // const record1 = try iter.next();
     // try testing.expect(record1 != null);
     // try testing.expect(record1.? == .instrument_def);
 }

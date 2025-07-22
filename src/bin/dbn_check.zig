@@ -4,10 +4,8 @@ const builtin = @import("builtin");
 
 // local imports
 const dbn = @import("dbn");
-const metadata = dbn.metadata;
-const record = dbn.record;
-const enums = dbn.enums;
-const RType = enums.RType;
+const RecordIterator = dbn.iter.RecordIterator;
+const RType = dbn.enums.RType;
 
 pub fn main() !void {
     var debug_allocator: std.heap.DebugAllocator(.{}) = .init;
@@ -30,30 +28,10 @@ pub fn main() !void {
 
     const file_path = args[1];
 
-    // Open the file
-    const file = try std.fs.cwd().openFile(file_path, .{});
-    defer file.close();
+    var iter = try RecordIterator.init(allocator, file_path);
+    defer iter.deinit();
 
-    var buffered = std.io.bufferedReader(file.deprecatedReader());
-    var buffered_reader = buffered.reader();
-
-    // Create reader - check if file ends with .zst for compression
-    var reader: std.io.AnyReader = undefined;
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor: ?std.compress.zstd.Decompressor(@TypeOf(buffered_reader)) = null;
-
-    if (std.mem.endsWith(u8, file_path, ".zst")) {
-        decompressor = std.compress.zstd.decompressor(buffered_reader, .{ .window_buffer = &window_buffer });
-        reader = decompressor.?.reader().any();
-    } else {
-        reader = buffered_reader.any();
-    }
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
-
-    try meta.check();
+    try iter.meta.check();
 
     // Initialize statistics tracking
     var rtype_counts = std.AutoHashMap(RType, u64).init(allocator);
@@ -61,11 +39,11 @@ pub fn main() !void {
 
     // Count records
     var record_count: u64 = 0;
-    while (try meta.readRecord(reader)) |rec| {
+    while (try iter.next()) |record| {
         record_count += 1;
 
         // Extract the RType from the record
-        const rtype = switch (rec) {
+        const rtype = switch (record) {
             inline else => |v| switch (v) {
                 inline else => |msg| msg.hd.rtype,
             },
@@ -82,7 +60,7 @@ pub fn main() !void {
     var stdout = std.fs.File.stdout().deprecatedWriter();
 
     // Check if limit matches record count
-    if (meta.limit) |limit| {
+    if (iter.meta.limit) |limit| {
         if (limit == record_count) {
             try stdout.print("OK\n", .{});
         } else {
@@ -96,8 +74,8 @@ pub fn main() !void {
 
     // Fill the counts array
     var counts: [256]u64 = [_]u64{0} ** 256;
-    var iter = rtype_counts.iterator();
-    while (iter.next()) |entry| {
+    var rtype_iter = rtype_counts.iterator();
+    while (rtype_iter.next()) |entry| {
         const rtype = @intFromEnum(entry.key_ptr.*);
         counts[rtype] += entry.value_ptr.*;
     }

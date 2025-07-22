@@ -1,19 +1,14 @@
 const std = @import("std");
 const testing = std.testing;
-const metadata = @import("metadata.zig");
-const record = @import("record.zig");
+
+const RecordIterator = @import("iter.zig").RecordIterator;
 
 test "test_data.bbo-1m.dbn" {
     const allocator = testing.allocator;
 
-    // Open the test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.bbo-1m.dbn", .{});
-    defer file.close();
-    const reader = file.deprecatedReader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.bbo-1m.dbn");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents
     try testing.expectEqual(.v2, meta.version);
@@ -41,10 +36,10 @@ test "test_data.bbo-1m.dbn" {
     try testing.expectEqual(1, meta.mappings[0].intervals.len);
     try testing.expectEqual(20201228, meta.mappings[0].intervals[0].start_ts);
     try testing.expectEqual(20201229, meta.mappings[0].intervals[0].end_ts);
-    try testing.expectEqualStrings("5482", meta.mappings[0].intervals[0].symbol);
+    try testing.expectEqual(5482, meta.mappings[0].intervals[0].instrument_id);
 
     // Read first BBO record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v2 == .bbo);
 
@@ -71,18 +66,9 @@ test "test_data.bbo-1m.dbn" {
 test "test_data.bbo-1m.v2.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.bbo-1m.v2.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.bbo-1m.v2.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v2
     try testing.expectEqual(.v2, meta.version);
@@ -101,7 +87,7 @@ test "test_data.bbo-1m.v2.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first BBO record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v2 == .bbo);
 
@@ -117,18 +103,9 @@ test "test_data.bbo-1m.v2.dbn.zst" {
 test "test_data.bbo-1m.v3.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.bbo-1m.v3.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.bbo-1m.v3.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v3
     try testing.expectEqual(.v3, meta.version);
@@ -147,7 +124,7 @@ test "test_data.bbo-1m.v3.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first BBO record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v3 == .bbo);
 
@@ -163,14 +140,9 @@ test "test_data.bbo-1m.v3.dbn.zst" {
 test "test_data.bbo-1s.dbn" {
     const allocator = testing.allocator;
 
-    // Open the test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.bbo-1s.dbn", .{});
-    defer file.close();
-    const reader = file.deprecatedReader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.bbo-1s.dbn");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents
     try testing.expectEqual(.v2, meta.version);
@@ -189,7 +161,7 @@ test "test_data.bbo-1s.dbn" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first BBO record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v2 == .bbo);
 
@@ -205,18 +177,9 @@ test "test_data.bbo-1s.dbn" {
 test "test_data.bbo-1s.v2.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.bbo-1s.v2.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.bbo-1s.v2.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v2
     try testing.expectEqual(.v2, meta.version);
@@ -235,7 +198,7 @@ test "test_data.bbo-1s.v2.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first BBO record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v2 == .bbo);
 
@@ -251,18 +214,9 @@ test "test_data.bbo-1s.v2.dbn.zst" {
 test "test_data.bbo-1s.v3.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.bbo-1s.v3.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.bbo-1s.v3.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v3
     try testing.expectEqual(.v3, meta.version);
@@ -281,7 +235,7 @@ test "test_data.bbo-1s.v3.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first BBO record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v3 == .bbo);
 

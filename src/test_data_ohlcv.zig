@@ -1,20 +1,14 @@
 const std = @import("std");
 const testing = std.testing;
-const metadata = @import("metadata.zig");
-const record = @import("record.zig");
-const dbz = @import("dbz.zig");
+
+const RecordIterator = @import("iter.zig").RecordIterator;
 
 test "test_data.ohlcv-1d.dbn" {
     const allocator = testing.allocator;
 
-    // Open the test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1d.dbn", .{});
-    defer file.close();
-    const reader = file.deprecatedReader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1d.dbn");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents
     try testing.expectEqual(.v2, meta.version);
@@ -38,10 +32,10 @@ test "test_data.ohlcv-1d.dbn" {
     try testing.expectEqual(1, meta.mappings[0].intervals.len);
     try testing.expectEqual(20201228, meta.mappings[0].intervals[0].start_ts);
     try testing.expectEqual(20201229, meta.mappings[0].intervals[0].end_ts);
-    try testing.expectEqualStrings("5482", meta.mappings[0].intervals[0].symbol);
+    try testing.expectEqual(5482, meta.mappings[0].intervals[0].instrument_id);
 
     // Read first OHLCV record (if present - limit is 2 but might not have records)
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     if (record1) |r| {
         try testing.expect(r.v2 == .ohlcv);
         const ohlcv1 = r.v2.ohlcv;
@@ -54,18 +48,9 @@ test "test_data.ohlcv-1d.dbn" {
 test "test_data.ohlcv-1d.v1.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1d.v1.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1d.v1.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v1
     try testing.expectEqual(.v1, meta.version);
@@ -84,7 +69,7 @@ test "test_data.ohlcv-1d.v1.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first OHLCV record (if present - limit is 2 but might not have records)
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     if (record1) |r| {
         try testing.expect(r.v1 == .ohlcv);
         const ohlcv1 = r.v1.ohlcv;
@@ -97,18 +82,9 @@ test "test_data.ohlcv-1d.v1.dbn.zst" {
 test "test_data.ohlcv-1d.v2.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1d.v2.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1d.v2.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v2
     try testing.expectEqual(.v2, meta.version);
@@ -132,10 +108,10 @@ test "test_data.ohlcv-1d.v2.dbn.zst" {
     try testing.expectEqual(1, meta.mappings[0].intervals.len);
     try testing.expectEqual(20201228, meta.mappings[0].intervals[0].start_ts);
     try testing.expectEqual(20201229, meta.mappings[0].intervals[0].end_ts);
-    try testing.expectEqualStrings("5482", meta.mappings[0].intervals[0].symbol);
+    try testing.expectEqual(5482, meta.mappings[0].intervals[0].instrument_id);
 
     // Read first OHLCV record (if present - limit is 2 but might not have records)
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     if (record1) |r| {
         try testing.expect(r.v2 == .ohlcv);
         const ohlcv1 = r.v2.ohlcv;
@@ -148,18 +124,9 @@ test "test_data.ohlcv-1d.v2.dbn.zst" {
 test "test_data.ohlcv-1d.v3.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1d.v3.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1d.v3.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v3
     try testing.expectEqual(.v3, meta.version);
@@ -183,10 +150,10 @@ test "test_data.ohlcv-1d.v3.dbn.zst" {
     try testing.expectEqual(1, meta.mappings[0].intervals.len);
     try testing.expectEqual(20201228, meta.mappings[0].intervals[0].start_ts);
     try testing.expectEqual(20201229, meta.mappings[0].intervals[0].end_ts);
-    try testing.expectEqualStrings("5482", meta.mappings[0].intervals[0].symbol);
+    try testing.expectEqual(5482, meta.mappings[0].intervals[0].instrument_id);
 
     // Read first OHLCV record (if present)
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     if (record1) |r| {
         try testing.expect(r.v3 == .ohlcv);
         const ohlcv1 = r.v3.ohlcv;
@@ -199,15 +166,9 @@ test "test_data.ohlcv-1d.v3.dbn.zst" {
 test "test_data.ohlcv-1d.dbz" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1d.dbz", .{});
-    defer file.close();
-
-    const file_reader = file.deprecatedReader();
-
-    // Read metadata
-    var meta = try dbz.readMetadata(allocator, file_reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1d.dbz");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v1
     try testing.expectEqual(.v1, meta.version);
@@ -225,13 +186,8 @@ test "test_data.ohlcv-1d.dbz" {
     try testing.expectEqual(1, meta.symbols.len);
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file_reader, .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
     // Read first OHLCV record (if present - limit is 2 but might not have records)
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     if (record1) |r| {
         try testing.expect(r.v1 == .ohlcv);
         const ohlcv1 = r.v1.ohlcv;
@@ -244,14 +200,9 @@ test "test_data.ohlcv-1d.dbz" {
 test "test_data.ohlcv-1h.dbn" {
     const allocator = testing.allocator;
 
-    // Open the test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1h.dbn", .{});
-    defer file.close();
-    const reader = file.deprecatedReader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1h.dbn");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents
     try testing.expectEqual(.v2, meta.version);
@@ -262,7 +213,7 @@ test "test_data.ohlcv-1h.dbn" {
     try testing.expectEqual(2, meta.limit);
 
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v2 == .ohlcv);
 
@@ -282,18 +233,9 @@ test "test_data.ohlcv-1h.dbn" {
 test "test_data.ohlcv-1h.v1.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1h.v1.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1h.v1.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v2
     try testing.expectEqual(.v1, meta.version);
@@ -312,7 +254,7 @@ test "test_data.ohlcv-1h.v1.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v1 == .ohlcv);
 
@@ -332,18 +274,9 @@ test "test_data.ohlcv-1h.v1.dbn.zst" {
 test "test_data.ohlcv-1h.v2.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1h.v2.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1h.v2.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v2
     try testing.expectEqual(.v2, meta.version);
@@ -362,7 +295,7 @@ test "test_data.ohlcv-1h.v2.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v2 == .ohlcv);
 
@@ -382,18 +315,9 @@ test "test_data.ohlcv-1h.v2.dbn.zst" {
 test "test_data.ohlcv-1h.v3.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1h.v3.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1h.v3.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v3
     try testing.expectEqual(.v3, meta.version);
@@ -412,7 +336,7 @@ test "test_data.ohlcv-1h.v3.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v3 == .ohlcv);
 
@@ -427,15 +351,9 @@ test "test_data.ohlcv-1h.v3.dbn.zst" {
 test "test_data.ohlcv-1h.dbz" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1h.dbz", .{});
-    defer file.close();
-
-    const file_reader = file.deprecatedReader();
-
-    // Read metadata
-    var meta = try dbz.readMetadata(allocator, file_reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1h.dbz");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v2
     try testing.expectEqual(.v1, meta.version);
@@ -453,13 +371,8 @@ test "test_data.ohlcv-1h.dbz" {
     try testing.expectEqual(1, meta.symbols.len);
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file_reader, .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v1 == .ohlcv);
 
@@ -479,14 +392,9 @@ test "test_data.ohlcv-1h.dbz" {
 test "test_data.ohlcv-1m.dbn" {
     const allocator = testing.allocator;
 
-    // Open the test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1m.dbn", .{});
-    defer file.close();
-    const reader = file.deprecatedReader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1m.dbn");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents
     try testing.expectEqual(.v2, meta.version);
@@ -497,7 +405,7 @@ test "test_data.ohlcv-1m.dbn" {
     try testing.expectEqual(2, meta.limit);
 
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v2 == .ohlcv);
 
@@ -517,18 +425,9 @@ test "test_data.ohlcv-1m.dbn" {
 test "test_data.ohlcv-1m.v1.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1m.v1.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1m.v1.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v1
     try testing.expectEqual(.v1, meta.version);
@@ -547,7 +446,7 @@ test "test_data.ohlcv-1m.v1.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v1 == .ohlcv);
 
@@ -567,18 +466,9 @@ test "test_data.ohlcv-1m.v1.dbn.zst" {
 test "test_data.ohlcv-1m.v2.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1m.v2.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1m.v2.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v2
     try testing.expectEqual(.v2, meta.version);
@@ -597,7 +487,7 @@ test "test_data.ohlcv-1m.v2.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v2 == .ohlcv);
 
@@ -617,18 +507,9 @@ test "test_data.ohlcv-1m.v2.dbn.zst" {
 test "test_data.ohlcv-1m.v3.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1m.v3.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1m.v3.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v3
     try testing.expectEqual(.v3, meta.version);
@@ -647,7 +528,7 @@ test "test_data.ohlcv-1m.v3.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v3 == .ohlcv);
 
@@ -662,15 +543,9 @@ test "test_data.ohlcv-1m.v3.dbn.zst" {
 test "test_data.ohlcv-1m.dbz" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1m.dbz", .{});
-    defer file.close();
-
-    const file_reader = file.deprecatedReader();
-
-    // Read metadata
-    var meta = try dbz.readMetadata(allocator, file_reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1m.dbz");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v1
     try testing.expectEqual(.v1, meta.version);
@@ -688,13 +563,8 @@ test "test_data.ohlcv-1m.dbz" {
     try testing.expectEqual(1, meta.symbols.len);
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file_reader, .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v1 == .ohlcv);
 
@@ -714,14 +584,9 @@ test "test_data.ohlcv-1m.dbz" {
 test "test_data.ohlcv-1s.dbn" {
     const allocator = testing.allocator;
 
-    // Open the test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1s.dbn", .{});
-    defer file.close();
-    const reader = file.deprecatedReader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1s.dbn");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents
     try testing.expectEqual(.v2, meta.version);
@@ -732,7 +597,7 @@ test "test_data.ohlcv-1s.dbn" {
     try testing.expectEqual(2, meta.limit);
 
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v2 == .ohlcv);
 
@@ -752,18 +617,9 @@ test "test_data.ohlcv-1s.dbn" {
 test "test_data.ohlcv-1s.v1.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1s.v1.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1s.v1.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v1
     try testing.expectEqual(.v1, meta.version);
@@ -782,7 +638,7 @@ test "test_data.ohlcv-1s.v1.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v1 == .ohlcv);
 
@@ -802,18 +658,9 @@ test "test_data.ohlcv-1s.v1.dbn.zst" {
 test "test_data.ohlcv-1s.v2.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1s.v2.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1s.v2.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v2
     try testing.expectEqual(.v2, meta.version);
@@ -832,7 +679,7 @@ test "test_data.ohlcv-1s.v2.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v2 == .ohlcv);
 
@@ -852,18 +699,9 @@ test "test_data.ohlcv-1s.v2.dbn.zst" {
 test "test_data.ohlcv-1s.v3.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1s.v3.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1s.v3.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v3
     try testing.expectEqual(.v3, meta.version);
@@ -882,7 +720,7 @@ test "test_data.ohlcv-1s.v3.dbn.zst" {
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v3 == .ohlcv);
 
@@ -897,15 +735,9 @@ test "test_data.ohlcv-1s.v3.dbn.zst" {
 test "test_data.ohlcv-1s.dbz" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.ohlcv-1s.dbz", .{});
-    defer file.close();
-
-    const file_reader = file.deprecatedReader();
-
-    // Read metadata
-    var meta = try dbz.readMetadata(allocator, file_reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.ohlcv-1s.dbz");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v1
     try testing.expectEqual(.v1, meta.version);
@@ -923,13 +755,8 @@ test "test_data.ohlcv-1s.dbz" {
     try testing.expectEqual(1, meta.symbols.len);
     try testing.expectEqualStrings("ESH1", meta.symbols[0]);
 
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file_reader, .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
     // Read first OHLCV record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v1 == .ohlcv);
 

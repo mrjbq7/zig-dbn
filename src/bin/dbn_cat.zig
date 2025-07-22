@@ -4,8 +4,7 @@ const builtin = @import("builtin");
 
 // local imports
 const dbn = @import("dbn");
-const metadata = dbn.metadata;
-const record = dbn.record;
+const RecordIterator = dbn.iter.RecordIterator;
 
 const Format = enum {
     meta,
@@ -42,28 +41,8 @@ pub fn main() !void {
         return error.InvalidFormat;
     };
 
-    // Open the file
-    const file = try std.fs.cwd().openFile(file_path, .{});
-    defer file.close();
-
-    var buffered = std.io.bufferedReader(file.deprecatedReader());
-    var buffered_reader = buffered.reader();
-
-    // Create reader - check if file ends with .zst for compression
-    var reader: std.io.AnyReader = undefined;
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor: ?std.compress.zstd.Decompressor(@TypeOf(buffered_reader)) = null;
-
-    if (std.mem.endsWith(u8, file_path, ".zst")) {
-        decompressor = std.compress.zstd.decompressor(buffered_reader, .{ .window_buffer = &window_buffer });
-        reader = decompressor.?.reader().any();
-    } else {
-        reader = buffered_reader.any();
-    }
-
-    // Read and print metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, file_path);
+    defer iter.deinit();
 
     // Create the buffered writer for stdout
     var buffer: [4096]u8 = undefined;
@@ -72,37 +51,37 @@ pub fn main() !void {
 
     // Print metadata only
     if (format == .meta) {
-        try meta.print(writer);
+        try iter.meta.print(writer);
         try writer.flush();
         return;
     }
 
     // Print all records
     var record_count: usize = 0;
-    while (try meta.readRecord(reader)) |rec| {
+    while (try iter.next()) |record| {
         record_count += 1;
-        const hd = switch (rec) {
+        const hd = switch (record) {
             inline else => |v| switch (v) {
                 inline else => |r| r.hd,
             },
         };
         switch (format) {
             .meta => unreachable,
-            .any => try writer.print("Record {d}: {any} {any}\n", .{ record_count, hd, rec }),
+            .any => try writer.print("Record {d}: {any} {any}\n", .{ record_count, hd, record }),
             .csv => {
                 if (record_count == 1) {
-                    try rec.printCsvHeader(writer);
+                    try record.printCsvHeader(writer);
                 }
-                try rec.printCsvRow(writer);
+                try record.printCsvRow(writer);
             },
             .tsv => {
                 if (record_count == 1) {
-                    try rec.printTsvHeader(writer);
+                    try record.printTsvHeader(writer);
                 }
-                try rec.printTsvRow(writer);
+                try record.printTsvRow(writer);
             },
-            .json => try rec.printJson(writer),
-            .zon => try rec.printZon(writer),
+            .json => try record.printJson(writer),
+            .zon => try record.printZon(writer),
         }
     }
 

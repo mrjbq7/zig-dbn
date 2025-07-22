@@ -1,19 +1,14 @@
 const std = @import("std");
 const testing = std.testing;
-const metadata = @import("metadata.zig");
-const record = @import("record.zig");
+
+const RecordIterator = @import("iter.zig").RecordIterator;
 
 test "test_data.statistics.dbn" {
     const allocator = testing.allocator;
 
-    // Open the test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.statistics.dbn", .{});
-    defer file.close();
-    const reader = file.deprecatedReader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.statistics.dbn");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents
     try testing.expectEqual(.v2, meta.version);
@@ -36,7 +31,7 @@ test "test_data.statistics.dbn" {
     if (true) return error.SkipZigTest; // XXX: FIX THIS TEST
 
     // Read first statistics record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v2 == .statistics);
 
@@ -58,7 +53,7 @@ test "test_data.statistics.dbn" {
     try testing.expectEqual(255, stat1.stat_flags);
 
     // Read second statistics record
-    const record2 = try meta.readRecord(reader);
+    const record2 = try iter.next();
     try testing.expect(record2 != null);
     try testing.expect(record2.?.v2 == .statistics);
 
@@ -80,25 +75,16 @@ test "test_data.statistics.dbn" {
     try testing.expectEqual(255, stat2.stat_flags);
 
     // Verify no more records
-    const record3 = try meta.readRecord(reader);
+    const record3 = try iter.next();
     try testing.expect(record3 == null);
 }
 
 test "test_data.statistics.v1.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.statistics.v1.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.statistics.v1.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v1
     try testing.expectEqual(.v1, meta.version);
@@ -119,7 +105,7 @@ test "test_data.statistics.v1.dbn.zst" {
     try testing.expectEqual(0, meta.mappings.len);
 
     // Read first statistics record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v1 == .statistics);
 
@@ -141,7 +127,7 @@ test "test_data.statistics.v1.dbn.zst" {
     try testing.expectEqual(255, stat1.stat_flags);
 
     // Read second statistics record
-    const record2 = try meta.readRecord(reader);
+    const record2 = try iter.next();
     try testing.expect(record2 != null);
     try testing.expect(record2.?.v1 == .statistics);
 
@@ -163,25 +149,16 @@ test "test_data.statistics.v1.dbn.zst" {
     try testing.expectEqual(255, stat2.stat_flags);
 
     // Verify no more records
-    const record3 = try meta.readRecord(reader);
+    const record3 = try iter.next();
     try testing.expect(record3 == null);
 }
 
 test "test_data.statistics.v2.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.statistics.v2.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.statistics.v2.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v2
     try testing.expectEqual(.v2, meta.version);
@@ -204,7 +181,7 @@ test "test_data.statistics.v2.dbn.zst" {
     if (true) return error.SkipZigTest; // XXX: FIX THIS TEST
 
     // Read first statistics record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v2 == .statistics);
 
@@ -226,7 +203,7 @@ test "test_data.statistics.v2.dbn.zst" {
     try testing.expectEqual(255, stat1.stat_flags);
 
     // Read second statistics record
-    const record2 = try meta.readRecord(reader);
+    const record2 = try iter.next();
     try testing.expect(record2 != null);
     try testing.expect(record2.?.v2 == .statistics);
 
@@ -248,25 +225,16 @@ test "test_data.statistics.v2.dbn.zst" {
     try testing.expectEqual(255, stat2.stat_flags);
 
     // Verify no more records
-    const record3 = try meta.readRecord(reader);
+    const record3 = try iter.next();
     try testing.expect(record3 == null);
 }
 
 test "test_data.statistics.v3.dbn.zst" {
     const allocator = testing.allocator;
 
-    // Open the compressed test data file
-    const file = try std.fs.cwd().openFile("test_data/test_data.statistics.v3.dbn.zst", .{});
-    defer file.close();
-
-    // Create a decompressor with window buffer
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor = std.compress.zstd.decompressor(file.deprecatedReader(), .{ .window_buffer = &window_buffer });
-    const reader = decompressor.reader();
-
-    // Read metadata
-    var meta = try metadata.readMetadata(allocator, reader);
-    defer meta.deinit();
+    var iter = try RecordIterator.init(allocator, "test_data/test_data.statistics.v3.dbn.zst");
+    defer iter.deinit();
+    const meta = iter.meta;
 
     // Assert metadata contents for v3
     try testing.expectEqual(.v3, meta.version);
@@ -287,7 +255,7 @@ test "test_data.statistics.v3.dbn.zst" {
     try testing.expectEqual(0, meta.mappings.len);
 
     // Read first statistics record
-    const record1 = try meta.readRecord(reader);
+    const record1 = try iter.next();
     try testing.expect(record1 != null);
     try testing.expect(record1.?.v3 == .statistics);
 
@@ -309,7 +277,7 @@ test "test_data.statistics.v3.dbn.zst" {
     try testing.expectEqual(255, stat1.stat_flags);
 
     // Read second statistics record
-    const record2 = try meta.readRecord(reader);
+    const record2 = try iter.next();
     try testing.expect(record2 != null);
     try testing.expect(record2.?.v3 == .statistics);
 
@@ -331,6 +299,6 @@ test "test_data.statistics.v3.dbn.zst" {
     try testing.expectEqual(255, stat2.stat_flags);
 
     // Verify no more records
-    const record3 = try meta.readRecord(reader);
+    const record3 = try iter.next();
     try testing.expect(record3 == null);
 }

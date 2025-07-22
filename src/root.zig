@@ -1,13 +1,14 @@
 const std = @import("std");
 
+pub const api = @import("api.zig");
 pub const constants = @import("constants.zig");
 pub const cram = @import("cram.zig");
 pub const enums = @import("enums.zig");
 pub const flags = @import("flags.zig");
+pub const iter = @import("iter.zig");
+pub const live = @import("live.zig");
 pub const metadata = @import("metadata.zig");
 pub const publishers = @import("publishers.zig");
-pub const live = @import("live.zig");
-pub const api = @import("api.zig");
 pub const record = @import("record.zig");
 pub const v1 = @import("v1.zig");
 pub const v2 = @import("v2.zig");
