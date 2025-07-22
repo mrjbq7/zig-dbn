@@ -30,16 +30,16 @@ test "test_data.definition.dbn" {
     // Check first few intervals
     try testing.expectEqual(20211004, meta.mappings[0].intervals[0].start_ts);
     try testing.expectEqual(20211005, meta.mappings[0].intervals[0].end_ts);
-    try testing.expectEqual(6819, meta.mappings[0].intervals[0].instrument_id);
+    try testing.expectEqualStrings("6819", meta.mappings[0].intervals[0].symbol);
 
     try testing.expectEqual(20211005, meta.mappings[0].intervals[1].start_ts);
     try testing.expectEqual(20211006, meta.mappings[0].intervals[1].end_ts);
-    try testing.expectEqual(6830, meta.mappings[0].intervals[1].instrument_id);
+    try testing.expectEqualStrings("6830", meta.mappings[0].intervals[1].symbol);
 
     // Check last interval
     try testing.expectEqual(20220103, meta.mappings[0].intervals[61].start_ts);
     try testing.expectEqual(20220104, meta.mappings[0].intervals[61].end_ts);
-    try testing.expectEqual(7119, meta.mappings[0].intervals[61].instrument_id);
+    try testing.expectEqualStrings("7119", meta.mappings[0].intervals[61].symbol);
 
     // TODO: FIX THIS TEST
 
@@ -84,16 +84,16 @@ test "test_data.definition.dbz" {
     // Check first few intervals
     try testing.expectEqual(20221004, meta.mappings[0].intervals[0].start_ts);
     try testing.expectEqual(20221205, meta.mappings[0].intervals[0].end_ts);
-    try testing.expectEqual(7358, meta.mappings[0].intervals[0].instrument_id);
+    try testing.expectEqualStrings("7358", meta.mappings[0].intervals[0].symbol);
 
     try testing.expectEqual(20221205, meta.mappings[0].intervals[1].start_ts);
     try testing.expectEqual(20221206, meta.mappings[0].intervals[1].end_ts);
-    try testing.expectEqual(7236, meta.mappings[0].intervals[1].instrument_id);
+    try testing.expectEqualStrings("7236", meta.mappings[0].intervals[1].symbol);
 
     // Check last interval
     try testing.expectEqual(20230103, meta.mappings[0].intervals[19].start_ts);
     try testing.expectEqual(20230104, meta.mappings[0].intervals[19].end_ts);
-    try testing.expectEqual(7084, meta.mappings[0].intervals[19].instrument_id);
+    try testing.expectEqualStrings("7084", meta.mappings[0].intervals[19].symbol);
 
     // TODO: FIX THIS TEST
     //

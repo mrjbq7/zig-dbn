@@ -32,7 +32,7 @@ test "test_data.ohlcv-1d.dbn" {
     try testing.expectEqual(1, meta.mappings[0].intervals.len);
     try testing.expectEqual(20201228, meta.mappings[0].intervals[0].start_ts);
     try testing.expectEqual(20201229, meta.mappings[0].intervals[0].end_ts);
-    try testing.expectEqual(5482, meta.mappings[0].intervals[0].instrument_id);
+    try testing.expectEqualStrings("5482", meta.mappings[0].intervals[0].symbol);
 
     // Read first OHLCV record (if present - limit is 2 but might not have records)
     const record1 = try iter.next();
@@ -108,7 +108,7 @@ test "test_data.ohlcv-1d.v2.dbn.zst" {
     try testing.expectEqual(1, meta.mappings[0].intervals.len);
     try testing.expectEqual(20201228, meta.mappings[0].intervals[0].start_ts);
     try testing.expectEqual(20201229, meta.mappings[0].intervals[0].end_ts);
-    try testing.expectEqual(5482, meta.mappings[0].intervals[0].instrument_id);
+    try testing.expectEqualStrings("5482", meta.mappings[0].intervals[0].symbol);
 
     // Read first OHLCV record (if present - limit is 2 but might not have records)
     const record1 = try iter.next();
@@ -150,7 +150,7 @@ test "test_data.ohlcv-1d.v3.dbn.zst" {
     try testing.expectEqual(1, meta.mappings[0].intervals.len);
     try testing.expectEqual(20201228, meta.mappings[0].intervals[0].start_ts);
     try testing.expectEqual(20201229, meta.mappings[0].intervals[0].end_ts);
-    try testing.expectEqual(5482, meta.mappings[0].intervals[0].instrument_id);
+    try testing.expectEqualStrings("5482", meta.mappings[0].intervals[0].symbol);
 
     // Read first OHLCV record (if present)
     const record1 = try iter.next();

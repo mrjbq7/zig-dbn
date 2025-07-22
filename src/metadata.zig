@@ -255,7 +255,7 @@ test "Metadata initialization and deinitialization" {
     try std.testing.expectEqual(null, metadata.end);
     try std.testing.expectEqual(null, metadata.limit);
     try std.testing.expectEqual(null, metadata.stype_in);
-    try std.testing.expectEqual(SType.raw_symbol, metadata.stype_out);
+    try std.testing.expectEqual(.raw_symbol, metadata.stype_out);
     try std.testing.expectEqual(false, metadata.ts_out);
     try std.testing.expectEqual(v3.SYMBOL_CSTR_LEN, metadata.symbol_cstr_len);
 }

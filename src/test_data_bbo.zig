@@ -36,7 +36,7 @@ test "test_data.bbo-1m.dbn" {
     try testing.expectEqual(1, meta.mappings[0].intervals.len);
     try testing.expectEqual(20201228, meta.mappings[0].intervals[0].start_ts);
     try testing.expectEqual(20201229, meta.mappings[0].intervals[0].end_ts);
-    try testing.expectEqual(5482, meta.mappings[0].intervals[0].instrument_id);
+    try testing.expectEqualStrings("5482", meta.mappings[0].intervals[0].symbol);
 
     // Read first BBO record
     const record1 = try iter.next();
