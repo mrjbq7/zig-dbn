@@ -201,7 +201,7 @@ pub const Metadata = struct {
         try writer.print("End: {?}\n", .{self.end});
         try writer.print("Limit: {?}\n", .{self.limit});
         try writer.print("SType In: {?}\n", .{self.stype_in});
-        try writer.print("SType Out: {t}\n", .{self.stype_out});
+        try writer.print("SType Out: {any}\n", .{self.stype_out});
         try writer.print("TS Out: {any}\n", .{self.ts_out});
         try writer.print("Symbol CStr Len: {d}\n", .{self.symbol_cstr_len});
 
