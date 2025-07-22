@@ -40,9 +40,6 @@ pub const SymbolMapping = struct {
 
     pub fn deinit(self: *SymbolMapping, allocator: std.mem.Allocator) void {
         allocator.free(self.raw_symbol);
-        for (self.intervals) |*interval| {
-            interval.deinit(allocator);
-        }
         allocator.free(self.intervals);
     }
 };
@@ -56,11 +53,7 @@ pub const MappingInterval = struct {
     /// TODO: Convert to proper timestamp in nanoseconds since UNIX epoch.
     end_ts: ?u64,
     /// The mapped symbol for this interval.
-    symbol: []const u8,
-
-    pub fn deinit(self: *MappingInterval, allocator: std.mem.Allocator) void {
-        allocator.free(self.symbol);
-    }
+    instrument_id: u32,
 };
 
 /// Information about the data contained in a DBN file or stream. DBN requires the
@@ -187,8 +180,7 @@ pub const Metadata = struct {
                 if (interval.end_ts) |end| {
                     std.debug.assert(end >= interval.start_ts);
                 }
-                std.debug.assert(interval.symbol.len > 0);
-                std.debug.assert(std.unicode.utf8ValidateSlice(interval.symbol));
+                std.debug.assert(interval.instrument_id > 0);
             }
         }
     }
@@ -225,9 +217,9 @@ pub const Metadata = struct {
             try writer.print("  [{d}] {s} -> {d} interval(s)\n", .{ i, mapping.raw_symbol, mapping.intervals.len });
             for (mapping.intervals, 0..) |interval, j| {
                 if (interval.end_ts) |end| {
-                    try writer.print("    [{d}] {d}-{d}: {s}\n", .{ j, interval.start_ts, end, interval.symbol });
+                    try writer.print("    [{d}] {d}-{d}: {d}\n", .{ j, interval.start_ts, end, interval.instrument_id });
                 } else {
-                    try writer.print("    [{d}] {d}-present: {s}\n", .{ j, interval.start_ts, interval.symbol });
+                    try writer.print("    [{d}] {d}-present: {d}\n", .{ j, interval.start_ts, interval.instrument_id });
                 }
             }
         }
@@ -255,7 +247,7 @@ test "Metadata initialization and deinitialization" {
     try std.testing.expectEqual(null, metadata.end);
     try std.testing.expectEqual(null, metadata.limit);
     try std.testing.expectEqual(null, metadata.stype_in);
-    try std.testing.expectEqual(SType.raw_symbol, metadata.stype_out);
+    try std.testing.expectEqual(.raw_symbol, metadata.stype_out);
     try std.testing.expectEqual(false, metadata.ts_out);
     try std.testing.expectEqual(v3.SYMBOL_CSTR_LEN, metadata.symbol_cstr_len);
 }
@@ -499,7 +491,9 @@ fn readSymbolMapping(allocator: std.mem.Allocator, symbol_cstr_len: usize, buffe
         pos.* += 4;
 
         // Read symbol
-        interval.symbol = try readSymbol(allocator, symbol_cstr_len, buffer, pos);
+        const symbol = try readSymbol(allocator, symbol_cstr_len, buffer, pos);
+        defer allocator.free(symbol);
+        interval.instrument_id = try std.fmt.parseInt(u32, symbol, 10);
     }
 
     return mapping;
