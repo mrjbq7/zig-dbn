@@ -9,6 +9,7 @@ const RecordIterator = dbn.iter.RecordIterator;
 const Format = enum {
     meta,
     any,
+    count,
     csv,
     tsv,
     json,
@@ -37,7 +38,7 @@ pub fn main() !void {
     const file_path = args[1];
 
     const format = if (args.len < 3) Format.any else std.meta.stringToEnum(Format, args[2]) orelse {
-        std.debug.print("Error: Unknown format '{s}'. Use 'meta', 'any', 'csv', 'tsv', 'json', or 'zon'\n", .{args[2]});
+        std.debug.print("Error: Unknown format '{s}'. Use 'meta', 'any', 'count', 'csv', 'tsv', 'json', or 'zon'\n", .{args[2]});
         return error.InvalidFormat;
     };
 
@@ -68,6 +69,12 @@ pub fn main() !void {
         switch (format) {
             .meta => unreachable,
             .any => try writer.print("Record {d}: {any} {any}\n", .{ record_count, hd, record }),
+            .count => {
+                if (record_count % 100_000 == 0) {
+                    try writer.print("{d}\n", .{record_count});
+                    try writer.flush();
+                }
+            },
             .csv => {
                 if (record_count == 1) {
                     try record.printCsvHeader(writer);
