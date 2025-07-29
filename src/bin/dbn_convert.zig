@@ -1,6 +1,7 @@
 // stdlib imports
 const std = @import("std");
 const builtin = @import("builtin");
+const zstd = std.compress.zstd;
 
 // local imports
 const dbn = @import("dbn");
@@ -51,27 +52,27 @@ pub fn main() !void {
     const input_file = try std.fs.cwd().openFile(input_path, .{});
     defer input_file.close();
 
-    var buffered_input = std.io.bufferedReader(input_file.deprecatedReader());
-    var input_reader = buffered_input.reader();
+    var input_buffer: [4096]u8 = undefined;
+    var input_reader = input_file.reader(&input_buffer);
 
-    // Create reader - check if file ends with .zst for compression
-    var reader: std.io.AnyReader = undefined;
-    var window_buffer: [std.compress.zstd.DecompressorOptions.default_window_buffer_len]u8 = undefined;
-    var decompressor: ?std.compress.zstd.Decompressor(@TypeOf(input_reader)) = null;
+    var reader: *std.io.Reader = &input_reader.interface;
 
+    var zstd_buffer: ?[]u8 = null;
+    var zstd_reader: ?zstd.Decompress = null;
+
+    // Check for compressed files
     if (std.mem.endsWith(u8, input_path, ".zst")) {
-        decompressor = std.compress.zstd.decompressor(input_reader, .{ .window_buffer = &window_buffer });
-        reader = decompressor.?.reader().any();
-    } else {
-        reader = input_reader.any();
+        zstd_buffer = try allocator.alloc(u8, zstd.default_window_len + zstd.block_size_max);
+        zstd_reader = zstd.Decompress.init(&input_reader.interface, zstd_buffer.?, .{});
+        reader = &zstd_reader.?.reader;
     }
 
     // Open the output file
     const output_file = try std.fs.cwd().createFile(output_path, .{});
     defer output_file.close();
 
-    var buffered_output = std.io.bufferedWriter(output_file.deprecatedWriter());
-    const output_writer = buffered_output.writer();
+    var output_buffer: [4096]u8 = undefined;
+    var output_writer = output_file.writer(&output_buffer);
 
     // TODO: arg for output format, if not specified use .v3
 
@@ -88,8 +89,8 @@ pub fn main() !void {
 
     // Convert and write records
     while (try meta.readRecord(reader)) |rec| {
-        try output_writer.print("{any}\n", .{rec});
+        try output_writer.interface.print("{any}\n", .{rec});
     }
 
-    try buffered_output.flush();
+    try output_writer.interface.flush();
 }

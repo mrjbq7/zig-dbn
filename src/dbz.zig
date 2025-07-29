@@ -1,5 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const zstd = std.compress.zstd;
 
 const constants = @import("constants.zig");
 const Metadata = @import("metadata.zig").Metadata;
@@ -15,21 +16,20 @@ const SCHEMA_VERSION: u8 = 1;
 const VERSION_CSTR_LEN: usize = 4;
 const RESERVED_LEN: usize = 39;
 
-pub fn readMetadata(allocator: std.mem.Allocator, reader: anytype) !Metadata {
-    const magic = try reader.readInt(u32, .little);
-    if (!std.compress.zstd.decompress.isSkippableMagic(magic)) {
+pub fn readMetadata(allocator: std.mem.Allocator, reader: *std.io.Reader) !Metadata {
+    const magic = try reader.takeInt(u32, .little);
+    if (magic < 0x184D2A50 or magic > 0x184D2A5F) {
         return error.BadMagic;
     }
 
-    const frameSize = try reader.readInt(u32, .little);
+    const frameSize = try reader.takeInt(u32, .little);
     if (frameSize < FIXED_METADATA_LEN) {
         return error.InvalidMetadata;
     }
 
     const buffer = try allocator.alloc(u8, frameSize);
     defer allocator.free(buffer);
-
-    try reader.readNoEof(buffer);
+    try reader.readSliceAll(buffer);
 
     return try parseMetadata(allocator, buffer);
 }
@@ -90,23 +90,17 @@ pub fn parseMetadata(allocator: std.mem.Allocator, buffer: []u8) !Metadata {
 
     pos += RESERVED_LEN;
 
-    var compressed: std.ArrayList(u8) = .init(allocator);
-    defer compressed.deinit();
-
-    const n = try std.compress.zstd.decompress.decodeZstandardFrameArrayList(
-        allocator,
-        &compressed,
-        buffer[pos..],
-        true,
-        std.math.maxInt(usize),
-    );
-    std.debug.assert(n <= (buffer.len - pos) * 3); // 3x is arbitrary
-
-    var zstd_buffer = try compressed.toOwnedSlice();
-    defer allocator.free(zstd_buffer);
+    // XXX: fix this
+    var out: std.io.Writer.Allocating = .init(allocator);
+    defer out.deinit();
+    try out.ensureUnusedCapacity(zstd.default_window_len);
+    var buf_reader: std.io.Reader = .fixed(buffer[pos..]);
+    var zstd_reader = zstd.Decompress.init(&buf_reader, &.{}, .{});
+    const len = try zstd_reader.reader.streamRemaining(&out.writer);
+    std.debug.assert(len <= (buffer.len - pos) * 4); // 4x is arbitrary
+    const zstd_buffer = out.getWritten();
 
     pos = 0;
-
     const schema_definition_length = std.mem.readInt(u32, zstd_buffer[0..4], .little);
     if (schema_definition_length != 0) return error.InvalidDbz;
     pos += 4 + schema_definition_length;

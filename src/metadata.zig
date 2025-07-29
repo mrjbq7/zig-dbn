@@ -1,4 +1,5 @@
 const std = @import("std");
+const zstd = std.compress.zstd;
 
 const enums = @import("enums.zig");
 const constants = @import("constants.zig");
@@ -233,11 +234,11 @@ pub const Metadata = struct {
         }
     }
 
-    pub fn readRecord(self: *Metadata, reader: anytype) !?Record {
+    pub fn readRecord(self: *Metadata, reader: *std.io.Reader) !?Record {
         return record.readRecord(reader, self.version);
     }
 
-    pub fn readRecords(self: *Metadata, allocator: std.mem.Allocator, reader: anytype) ![]Record {
+    pub fn readRecords(self: *Metadata, allocator: std.mem.Allocator, reader: *std.io.Reader) ![]Record {
         return record.readRecords(allocator, reader, self.version);
     }
 };
@@ -261,31 +262,28 @@ test "Metadata initialization and deinitialization" {
 }
 
 /// Reads DBN metadata from a reader, including the DBN header and version check.
-pub fn readMetadata(allocator: std.mem.Allocator, reader: anytype) !Metadata {
+pub fn readMetadata(allocator: std.mem.Allocator, reader: *std.io.Reader) !Metadata {
     // Read and validate DBN header (3 bytes)
     var header: [3]u8 = undefined;
-    try reader.readNoEof(&header);
+    try reader.readSliceAll(&header);
     if (!std.mem.eql(u8, &header, DBN_MAGIC)) {
         return MetadataError.InvalidHeader;
     }
 
     // Read version
-    const version_byte = try reader.readByte();
+    const version_byte = try reader.takeByte();
     const version: Version = @enumFromInt(version_byte);
 
     // Read metadata length
-    var length_bytes: [4]u8 = undefined;
-    try reader.readNoEof(&length_bytes);
-    const metadata_length = std.mem.readInt(u32, &length_bytes, .little);
-
-    if (metadata_length < METADATA_FIXED_LEN) {
+    const length = try reader.takeInt(u32, .little);
+    if (length < METADATA_FIXED_LEN) {
         return MetadataError.InvalidMetadataLength;
     }
 
     // Read the rest of metadata into buffer
-    const buffer = try allocator.alloc(u8, metadata_length);
+    const buffer = try allocator.alloc(u8, length);
     defer allocator.free(buffer);
-    try reader.readNoEof(buffer);
+    try reader.readSliceAll(buffer);
 
     // Parse metadata from buffer
     return try parseMetadata(allocator, version, buffer);

@@ -181,28 +181,23 @@ pub const Record = union(enum) {
     }
 };
 
-pub fn readRecord(reader: anytype, version: Version) !?Record {
+pub fn readRecord(reader: *std.io.Reader, version: Version) !?Record {
     // 1. read the u8 that indicates length of the record in 32-bit words
-    const length_words = reader.readByte() catch |err| switch (err) {
+    const length_words = reader.peekByte() catch |err| switch (err) {
         error.EndOfStream => return null,
         else => return err,
     };
 
-    // 2. read the whole record
-    const length_bytes = @as(usize, length_words) * 4;
-    var buffer: [1024]u8 = undefined;
-    if (length_bytes > buffer.len) {
+    // 2. compute length in bytes
+    const length_bytes = (@as(usize, length_words) * 4);
+    if (length_bytes > 1024) {
         return error.RecordTooLarge;
     }
 
-    // Put the length byte back at the beginning of the buffer
-    buffer[0] = length_words;
+    // 3. read the whole record
+    const buffer = try reader.take(length_bytes);
 
-    // Read the rest of the record (minus the length byte we already read)
-    try reader.readNoEof(buffer[1..length_bytes]);
-
-    // Read the record from the bytes
-    return try recordFromBytes(version, buffer[0..length_bytes]);
+    return try recordFromBytes(version, buffer);
 }
 
 pub fn recordFromBytes(version: Version, bytes: []const u8) !Record {
