@@ -11,6 +11,7 @@ const Format = enum {
     any,
     count,
     csv,
+    dbn,
     tsv,
     json,
     zon,
@@ -57,6 +58,10 @@ pub fn main() !void {
         return;
     }
 
+    if (format == .dbn) {
+        std.debug.print("XXX: implement dbn metadata writing\n", .{});
+    }
+
     // Print all records
     var record_count: usize = 0;
     while (try iter.next()) |record| {
@@ -80,6 +85,13 @@ pub fn main() !void {
                     try record.printCsvHeader(writer);
                 }
                 try record.printCsvRow(writer);
+            },
+            .dbn => {
+                switch (record) {
+                    inline else => |v| switch (v) {
+                        inline else => |r| try writer.writeStruct(r, .little),
+                    },
+                }
             },
             .tsv => {
                 if (record_count == 1) {
