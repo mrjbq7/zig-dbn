@@ -189,7 +189,7 @@ pub fn readRecord(reader: *std.io.Reader, version: Version) !?Record {
     };
 
     // 2. compute length in bytes
-    const length_bytes = (@as(usize, length_words) * 4);
+    const length_bytes = @as(usize, length_words) * 4;
     if (length_bytes > 1024) {
         return error.RecordTooLarge;
     }
