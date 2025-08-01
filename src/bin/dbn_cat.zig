@@ -59,7 +59,7 @@ pub fn main() !void {
     }
 
     if (format == .dbn) {
-        std.debug.print("XXX: implement dbn metadata writing\n", .{});
+        try dbn.metadata.writeMetadata(writer, &iter.meta);
     }
 
     // Print all records
@@ -104,7 +104,9 @@ pub fn main() !void {
         }
     }
 
-    try writer.print("\nTotal records: {d}\n", .{record_count});
+    if (format != .dbn) {
+        try writer.print("\nTotal records: {d}\n", .{record_count});
+    }
 
     try writer.flush();
 }

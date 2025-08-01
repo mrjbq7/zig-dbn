@@ -261,6 +261,107 @@ test "Metadata initialization and deinitialization" {
     try std.testing.expectEqual(v3.SYMBOL_CSTR_LEN, metadata.symbol_cstr_len);
 }
 
+test "Metadata write and read roundtrip" {
+    const allocator = std.testing.allocator;
+
+    // Create metadata with test data
+    var original_metadata = Metadata.init(allocator);
+    defer original_metadata.deinit();
+
+    original_metadata.dataset = try allocator.dupe(u8, "TEST");
+    original_metadata.schema = .trades;
+    original_metadata.start = 1234567890;
+    original_metadata.end = 9876543210;
+    original_metadata.limit = 1000;
+    original_metadata.stype_in = .raw_symbol;
+    original_metadata.stype_out = .instrument_id;
+    original_metadata.ts_out = true;
+
+    // Add some symbols
+    original_metadata.symbols = try allocator.alloc([]const u8, 2);
+    original_metadata.symbols[0] = try allocator.dupe(u8, "AAPL");
+    original_metadata.symbols[1] = try allocator.dupe(u8, "MSFT");
+
+    // Add partial symbols
+    original_metadata.partial = try allocator.alloc([]const u8, 1);
+    original_metadata.partial[0] = try allocator.dupe(u8, "GOOGL");
+
+    // Add not found symbols
+    original_metadata.not_found = try allocator.alloc([]const u8, 1);
+    original_metadata.not_found[0] = try allocator.dupe(u8, "INVALID");
+
+    // Add a mapping
+    original_metadata.mappings = try allocator.alloc(SymbolMapping, 1);
+    original_metadata.mappings[0].raw_symbol = try allocator.dupe(u8, "ES");
+    original_metadata.mappings[0].intervals = try allocator.alloc(MappingInterval, 2);
+    original_metadata.mappings[0].intervals[0] = .{
+        .start_ts = 20230101,
+        .end_ts = 20230630,
+        .symbol = try allocator.dupe(u8, "ESH23"),
+    };
+    original_metadata.mappings[0].intervals[1] = .{
+        .start_ts = 20230701,
+        .end_ts = null,
+        .symbol = try allocator.dupe(u8, "ESU23"),
+    };
+
+    // Write to buffer
+    var buffer = std.ArrayList(u8).init(allocator);
+    defer buffer.deinit();
+    var writer = buffer.writer();
+    var adapter = writer.adaptToNewApi();
+
+    try writeMetadata(&adapter.new_interface, &original_metadata);
+
+    // Read back from buffer
+    var stream: std.io.Reader = .fixed(buffer.items);
+    var read_metadata = try readMetadata(allocator, &stream);
+    defer read_metadata.deinit();
+
+    // Verify all fields match
+    try std.testing.expectEqual(original_metadata.version, read_metadata.version);
+    try std.testing.expectEqualStrings(original_metadata.dataset, read_metadata.dataset);
+    try std.testing.expectEqual(original_metadata.schema, read_metadata.schema);
+    try std.testing.expectEqual(original_metadata.start, read_metadata.start);
+    try std.testing.expectEqual(original_metadata.end, read_metadata.end);
+    try std.testing.expectEqual(original_metadata.limit, read_metadata.limit);
+    try std.testing.expectEqual(original_metadata.stype_in, read_metadata.stype_in);
+    try std.testing.expectEqual(original_metadata.stype_out, read_metadata.stype_out);
+    try std.testing.expectEqual(original_metadata.ts_out, read_metadata.ts_out);
+    try std.testing.expectEqual(original_metadata.symbol_cstr_len, read_metadata.symbol_cstr_len);
+
+    // Verify symbols
+    try std.testing.expectEqual(original_metadata.symbols.len, read_metadata.symbols.len);
+    for (original_metadata.symbols, read_metadata.symbols) |orig, read| {
+        try std.testing.expectEqualStrings(orig, read);
+    }
+
+    // Verify partial
+    try std.testing.expectEqual(original_metadata.partial.len, read_metadata.partial.len);
+    for (original_metadata.partial, read_metadata.partial) |orig, read| {
+        try std.testing.expectEqualStrings(orig, read);
+    }
+
+    // Verify not_found
+    try std.testing.expectEqual(original_metadata.not_found.len, read_metadata.not_found.len);
+    for (original_metadata.not_found, read_metadata.not_found) |orig, read| {
+        try std.testing.expectEqualStrings(orig, read);
+    }
+
+    // Verify mappings
+    try std.testing.expectEqual(original_metadata.mappings.len, read_metadata.mappings.len);
+    for (original_metadata.mappings, read_metadata.mappings) |orig_map, read_map| {
+        try std.testing.expectEqualStrings(orig_map.raw_symbol, read_map.raw_symbol);
+        try std.testing.expectEqual(orig_map.intervals.len, read_map.intervals.len);
+
+        for (orig_map.intervals, read_map.intervals) |orig_int, read_int| {
+            try std.testing.expectEqual(orig_int.start_ts, read_int.start_ts);
+            try std.testing.expectEqual(orig_int.end_ts, read_int.end_ts);
+            try std.testing.expectEqualStrings(orig_int.symbol, read_int.symbol);
+        }
+    }
+}
+
 /// Reads DBN metadata from a reader, including the DBN header and version check.
 pub fn readMetadata(allocator: std.mem.Allocator, reader: *std.io.Reader) !Metadata {
     // Read and validate DBN header (3 bytes)
@@ -501,4 +602,141 @@ fn readSymbolMapping(allocator: std.mem.Allocator, symbol_cstr_len: usize, buffe
     }
 
     return mapping;
+}
+
+pub fn writeMetadata(writer: *std.io.Writer, metadata: *const Metadata) !void {
+    // Calculate total metadata size
+    const metadata_size = try calculateMetadataSize(metadata);
+
+    // Write header
+    try writer.writeAll(DBN_MAGIC);
+    try writer.writeByte(@intFromEnum(metadata.version));
+    try writer.writeInt(u32, @intCast(metadata_size), .little);
+
+    // Write dataset (16 bytes, null-terminated)
+    var dataset_buf: [METADATA_DATASET_CSTR_LEN]u8 = @splat(0);
+    const n = @min(metadata.dataset.len, METADATA_DATASET_CSTR_LEN - 1);
+    @memcpy(dataset_buf[0..n], metadata.dataset[0..n]);
+    try writer.writeAll(&dataset_buf);
+
+    // Write schema
+    const schema_val: u16 = if (metadata.schema) |s| @intFromEnum(s) else NULL_SCHEMA;
+    try writer.writeInt(u16, schema_val, .little);
+
+    // Write timestamps
+    try writer.writeInt(u64, metadata.start, .little);
+    try writer.writeInt(u64, metadata.end orelse constants.UNDEF_TIMESTAMP, .little);
+    try writer.writeInt(u64, metadata.limit orelse 0, .little);
+
+    // Write deprecated record count
+    if (metadata.version == .v1) {
+        try writer.writeInt(u64, 0, .little);
+    }
+
+    // Write stype_in
+    const stype_in_val: u8 = if (metadata.stype_in) |s| @intFromEnum(s) else NULL_STYPE;
+    try writer.writeByte(stype_in_val);
+
+    // Write stype_out
+    try writer.writeByte(@intFromEnum(metadata.stype_out));
+
+    // Write ts_out
+    try writer.writeByte(if (metadata.ts_out) 1 else 0);
+
+    // Write symbol_cstr_len (not for v1)
+    if (metadata.version != .v1) {
+        try writer.writeInt(u16, @intCast(metadata.symbol_cstr_len), .little);
+    }
+
+    // Write reserved bytes
+    const reserved_len = switch (metadata.version) {
+        .v1 => v1.METADATA_RESERVED_LEN,
+        .v2 => v2.METADATA_RESERVED_LEN,
+        .v3 => v3.METADATA_RESERVED_LEN,
+    };
+    var reserved_bytes: [v3.METADATA_RESERVED_LEN]u8 = @splat(0);
+    try writer.writeAll(reserved_bytes[0..reserved_len]);
+
+    // Write schema definition length (always 0 for now)
+    try writer.writeInt(u32, 0, .little);
+
+    // Write symbols
+    try writeRepeatedSymbols(writer, metadata.symbols, metadata.symbol_cstr_len);
+    try writeRepeatedSymbols(writer, metadata.partial, metadata.symbol_cstr_len);
+    try writeRepeatedSymbols(writer, metadata.not_found, metadata.symbol_cstr_len);
+    try writeSymbolMappings(writer, metadata.mappings, metadata.symbol_cstr_len);
+
+    try writer.flush();
+}
+
+/// Calculates the total size of metadata in bytes.
+fn calculateMetadataSize(metadata: *const Metadata) !usize {
+    var size: usize = METADATA_FIXED_LEN;
+
+    size += 4; // schema definition length
+
+    // Add size for repeated symbols
+    size += 4 + metadata.symbols.len * metadata.symbol_cstr_len;
+    size += 4 + metadata.partial.len * metadata.symbol_cstr_len;
+    size += 4 + metadata.not_found.len * metadata.symbol_cstr_len;
+
+    // Add size for mappings
+    size += 4; // mapping count
+    for (metadata.mappings) |mapping| {
+        size += metadata.symbol_cstr_len; // raw_symbol
+        size += 4; // interval count
+        size += mapping.intervals.len * (8 + metadata.symbol_cstr_len); // each interval: start(4) + end(4) + symbol
+    }
+
+    return size;
+}
+
+/// Writes a repeated list of null-terminated symbol strings.
+fn writeRepeatedSymbols(writer: *std.io.Writer, symbols: []const []const u8, symbol_cstr_len: usize) !void {
+    try writer.writeInt(u32, @intCast(symbols.len), .little);
+
+    for (symbols) |symbol| {
+        try writeSymbol(writer, symbol, symbol_cstr_len);
+    }
+}
+
+/// Writes a single null-terminated symbol string.
+fn writeSymbol(writer: *std.io.Writer, symbol: []const u8, symbol_cstr_len: usize) !void {
+    // Use a buffer large enough for any reasonable symbol length
+    var symbol_buf: [256]u8 = @splat(0);
+    std.debug.assert(symbol_cstr_len <= 256);
+    const n = @min(symbol.len, symbol_cstr_len - 1);
+    @memcpy(symbol_buf[0..n], symbol[0..n]);
+    try writer.writeAll(symbol_buf[0..symbol_cstr_len]);
+}
+
+/// Writes symbol mappings.
+fn writeSymbolMappings(writer: *std.io.Writer, mappings: []const SymbolMapping, symbol_cstr_len: usize) !void {
+    try writer.writeInt(u32, @intCast(mappings.len), .little);
+
+    for (mappings) |mapping| {
+        try writeSymbolMapping(writer, &mapping, symbol_cstr_len);
+    }
+}
+
+/// Writes a single symbol mapping.
+fn writeSymbolMapping(writer: *std.io.Writer, mapping: *const SymbolMapping, symbol_cstr_len: usize) !void {
+    // Write raw symbol
+    try writeSymbol(writer, mapping.raw_symbol, symbol_cstr_len);
+
+    // Write interval count
+    try writer.writeInt(u32, @intCast(mapping.intervals.len), .little);
+
+    // Write intervals
+    for (mapping.intervals) |interval| {
+        // Write start timestamp (as u32 date for now)
+        try writer.writeInt(u32, @intCast(interval.start_ts), .little);
+
+        // Write end timestamp
+        const end_date: u32 = if (interval.end_ts) |end| @intCast(end) else 0;
+        try writer.writeInt(u32, end_date, .little);
+
+        // Write symbol
+        try writeSymbol(writer, interval.symbol, symbol_cstr_len);
+    }
 }
