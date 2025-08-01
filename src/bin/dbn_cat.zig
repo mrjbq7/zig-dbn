@@ -12,8 +12,8 @@ const Format = enum {
     count,
     csv,
     dbn,
-    tsv,
     json,
+    tsv,
     zon,
 };
 
@@ -39,7 +39,7 @@ pub fn main() !void {
     const file_path = args[1];
 
     const format = if (args.len < 3) Format.any else std.meta.stringToEnum(Format, args[2]) orelse {
-        std.debug.print("Error: Unknown format '{s}'. Use 'meta', 'any', 'count', 'csv', 'tsv', 'json', or 'zon'\n", .{args[2]});
+        std.debug.print("Error: Unknown format '{s}'. Use 'meta', 'any', 'count', 'csv', 'dbn', 'json', 'tsv', or 'zon'\n", .{args[2]});
         return error.InvalidFormat;
     };
 
