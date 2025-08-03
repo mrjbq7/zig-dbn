@@ -380,74 +380,60 @@ pub fn readMetadata(allocator: std.mem.Allocator, reader: *std.io.Reader) !Metad
 
 /// Parses metadata from a buffer.
 fn parseMetadata(allocator: std.mem.Allocator, version: Version, buffer: []const u8) !Metadata {
-    var pos: usize = 0;
+    var reader: std.io.Reader = .fixed(buffer);
+
     var metadata = Metadata.init(allocator);
     errdefer metadata.deinit();
 
     metadata.version = version;
 
     // Read dataset
-    if (pos + METADATA_DATASET_CSTR_LEN > buffer.len) return error.UnexpectedEndOfBuffer;
-    const dataset_slice = buffer[pos .. pos + METADATA_DATASET_CSTR_LEN];
+    const dataset_slice = try reader.take(METADATA_DATASET_CSTR_LEN);
     const dataset_str = std.mem.sliceTo(dataset_slice, 0);
     metadata.dataset = try allocator.dupe(u8, dataset_str);
-    pos += METADATA_DATASET_CSTR_LEN;
 
     // Read schema
-    if (pos + 2 > buffer.len) return error.UnexpectedEndOfBuffer;
-    const raw_schema = std.mem.readInt(u16, buffer[pos..][0..2], .little);
+    const raw_schema = try reader.takeInt(u16, .little);
     if (raw_schema == NULL_SCHEMA) {
         metadata.schema = null;
     } else {
         metadata.schema = try std.meta.intToEnum(Schema, raw_schema);
     }
-    pos += 2;
 
     // Read timestamps
-    if (pos + 24 > buffer.len) return error.UnexpectedEndOfBuffer; // 3 * u64
-    metadata.start = std.mem.readInt(u64, buffer[pos..][0..8], .little);
-    pos += 8;
+    metadata.start = try reader.takeInt(u64, .little);
 
-    const end_ts = std.mem.readInt(u64, buffer[pos..][0..8], .little);
+    const end_ts = try reader.takeInt(u64, .little);
     metadata.end = if (end_ts == constants.UNDEF_TIMESTAMP) null else end_ts;
-    pos += 8;
 
-    const limit_val = std.mem.readInt(u64, buffer[pos..][0..8], .little);
+    const limit_val = try reader.takeInt(u64, .little);
     metadata.limit = if (limit_val == 0) null else limit_val;
-    pos += 8;
 
     // Skip deprecated record_count for version 1
     if (version == .v1) {
-        if (pos + 8 > buffer.len) return error.UnexpectedEndOfBuffer;
-        pos += 8;
+        try reader.discardAll(8);
     }
 
     // Read stype_in
-    if (pos + 1 > buffer.len) return error.UnexpectedEndOfBuffer;
-    if (buffer[pos] == NULL_STYPE) {
+    const stype_in = try reader.takeByte();
+    if (stype_in == NULL_STYPE) {
         metadata.stype_in = null;
     } else {
-        metadata.stype_in = try std.meta.intToEnum(SType, buffer[pos]);
+        metadata.stype_in = try std.meta.intToEnum(SType, stype_in);
     }
-    pos += 1;
 
     // Read stype_out
-    if (pos + 1 > buffer.len) return error.UnexpectedEndOfBuffer;
-    metadata.stype_out = try std.meta.intToEnum(SType, buffer[pos]);
-    pos += 1;
+    const stype_out = try reader.takeByte();
+    metadata.stype_out = try std.meta.intToEnum(SType, stype_out);
 
     // Read ts_out
-    if (pos + 1 > buffer.len) return error.UnexpectedEndOfBuffer;
-    metadata.ts_out = buffer[pos] != 0;
-    pos += 1;
+    metadata.ts_out = try reader.takeByte() != 0;
 
     // Read symbol_cstr_len
     if (version == .v1) {
         metadata.symbol_cstr_len = v1.SYMBOL_CSTR_LEN;
     } else {
-        if (pos + 2 > buffer.len) return error.UnexpectedEndOfBuffer;
-        metadata.symbol_cstr_len = std.mem.readInt(u16, buffer[pos..][0..2], .little);
-        pos += 2;
+        metadata.symbol_cstr_len = try reader.takeInt(u16, .little);
     }
 
     // Skip reserved bytes
@@ -456,37 +442,30 @@ fn parseMetadata(allocator: std.mem.Allocator, version: Version, buffer: []const
         .v2 => v2.METADATA_RESERVED_LEN,
         .v3 => v3.METADATA_RESERVED_LEN,
     };
-    if (pos + reserved_len > buffer.len) return error.UnexpectedEndOfBuffer;
-    pos += reserved_len;
+    try reader.discardAll(reserved_len);
 
     // Read schema definition length
-    if (pos + 4 > buffer.len) return error.UnexpectedEndOfBuffer;
-    const schema_def_length = std.mem.readInt(u32, buffer[pos..][0..4], .little);
-    pos += 4 + schema_def_length;
-
+    const schema_def_length = try reader.takeInt(u32, .little);
     if (schema_def_length != 0) return error.SchemaDefinitionsNotSupported;
 
     // Read symbols
-    metadata.symbols = try readRepeatedSymbols(allocator, metadata.symbol_cstr_len, buffer, &pos);
-    metadata.partial = try readRepeatedSymbols(allocator, metadata.symbol_cstr_len, buffer, &pos);
-    metadata.not_found = try readRepeatedSymbols(allocator, metadata.symbol_cstr_len, buffer, &pos);
-    metadata.mappings = try readSymbolMappings(allocator, metadata.symbol_cstr_len, buffer, &pos);
+    metadata.symbols = try readRepeatedSymbols(allocator, metadata.symbol_cstr_len, &reader);
+    metadata.partial = try readRepeatedSymbols(allocator, metadata.symbol_cstr_len, &reader);
+    metadata.not_found = try readRepeatedSymbols(allocator, metadata.symbol_cstr_len, &reader);
+    metadata.mappings = try readSymbolMappings(allocator, metadata.symbol_cstr_len, &reader);
 
     return metadata;
 }
 
 /// Reads a repeated list of null-terminated symbol strings.
-pub fn readRepeatedSymbols(allocator: std.mem.Allocator, symbol_cstr_len: usize, buffer: []const u8, pos: *usize) ![][]const u8 {
-    if (pos.* + 4 > buffer.len) return error.UnexpectedEndOfBuffer;
-
-    const count = std.mem.readInt(u32, buffer[pos.*..][0..4], .little);
-    pos.* += 4;
+pub fn readRepeatedSymbols(allocator: std.mem.Allocator, symbol_cstr_len: usize, reader: *std.io.Reader) ![][]const u8 {
+    const count = try reader.takeInt(u32, .little);
 
     const symbols = try allocator.alloc([]const u8, count);
     errdefer allocator.free(symbols);
 
     for (symbols, 0..) |*symbol, i| {
-        symbol.* = readSymbol(allocator, symbol_cstr_len, buffer, pos) catch |err| {
+        symbol.* = readSymbol(allocator, symbol_cstr_len, reader) catch |err| {
             // Clean up already allocated symbols
             for (symbols[0..i]) |sym| {
                 allocator.free(sym);
@@ -499,92 +478,54 @@ pub fn readRepeatedSymbols(allocator: std.mem.Allocator, symbol_cstr_len: usize,
 }
 
 /// Reads a single null-terminated symbol string.
-fn readSymbol(allocator: std.mem.Allocator, symbol_cstr_len: usize, buffer: []const u8, pos: *usize) ![]const u8 {
-    if (pos.* + symbol_cstr_len > buffer.len) return error.UnexpectedEndOfBuffer;
-
-    const symbol_slice = buffer[pos.* .. pos.* + symbol_cstr_len];
+fn readSymbol(allocator: std.mem.Allocator, symbol_cstr_len: usize, reader: *std.io.Reader) ![]const u8 {
+    const symbol_slice = try reader.take(symbol_cstr_len);
     const symbol_str = std.mem.sliceTo(symbol_slice, 0);
 
     if (!std.unicode.utf8ValidateSlice(symbol_str)) {
         return error.InvalidUtf8;
     }
 
-    pos.* += symbol_cstr_len;
     return try allocator.dupe(u8, symbol_str);
 }
 
 /// Reads symbol mappings from buffer.
-pub fn readSymbolMappings(allocator: std.mem.Allocator, symbol_cstr_len: usize, buffer: []const u8, pos: *usize) ![]SymbolMapping {
-    if (pos.* + 4 > buffer.len) return error.UnexpectedEndOfBuffer;
-
-    const count = std.mem.readInt(u32, buffer[pos.*..][0..4], .little);
-    pos.* += 4;
+pub fn readSymbolMappings(allocator: std.mem.Allocator, symbol_cstr_len: usize, reader: *std.io.Reader) ![]SymbolMapping {
+    const count = try reader.takeInt(u32, .little);
 
     const mappings = try allocator.alloc(SymbolMapping, count);
     errdefer allocator.free(mappings);
 
     for (mappings) |*mapping| {
-        mapping.* = try readSymbolMapping(allocator, symbol_cstr_len, buffer, pos);
+        mapping.* = try readSymbolMapping(allocator, symbol_cstr_len, reader);
     }
 
     return mappings;
 }
 
 /// Reads a single symbol mapping.
-fn readSymbolMapping(allocator: std.mem.Allocator, symbol_cstr_len: usize, buffer: []const u8, pos: *usize) !SymbolMapping {
+fn readSymbolMapping(allocator: std.mem.Allocator, symbol_cstr_len: usize, reader: *std.io.Reader) !SymbolMapping {
     var mapping: SymbolMapping = undefined;
 
-    // Check minimum size needed for symbol mapping (raw_symbol + interval_count)
-    const min_symbol_mapping_encoded_len = symbol_cstr_len + @sizeOf(u32);
-    if (pos.* + min_symbol_mapping_encoded_len > buffer.len) {
-        return error.UnexpectedEndOfBuffer;
-    }
-
-    // Read raw symbol
-    mapping.raw_symbol = try readSymbol(allocator, symbol_cstr_len, buffer, pos);
+    mapping.raw_symbol = try readSymbol(allocator, symbol_cstr_len, reader);
     errdefer allocator.free(mapping.raw_symbol);
 
-    // Read interval count
-    if (pos.* + 4 > buffer.len) {
-        return error.UnexpectedEndOfBuffer;
-    }
-    const interval_count = std.mem.readInt(u32, buffer[pos.*..][0..4], .little);
-    pos.* += 4;
-
-    // Validate buffer has enough space for all intervals
-    const mapping_interval_encoded_len = @sizeOf(u32) * 2 + symbol_cstr_len; // start_date + end_date + symbol
-    const read_size = interval_count * mapping_interval_encoded_len;
-    if (pos.* + read_size > buffer.len) {
-        return error.UnexpectedEndOfBuffer;
-    }
-
     // Read intervals
+    const interval_count = try reader.takeInt(u32, .little);
     mapping.intervals = try allocator.alloc(MappingInterval, interval_count);
     errdefer allocator.free(mapping.intervals);
 
     for (mapping.intervals) |*interval| {
         // Read start timestamp (stored as u32 date in DBN format)
-        if (pos.* + 4 > buffer.len) {
-            return error.UnexpectedEndOfBuffer;
-        }
-        const start_date = std.mem.readInt(u32, buffer[pos.*..][0..4], .little);
-        // For now, store the raw u32 date value as u64
         // TODO: Implement proper date to timestamp conversion
-        interval.start_ts = start_date;
-        pos.* += 4;
+        interval.start_ts = try reader.takeInt(u32, .little);
 
-        // Read end timestamp
-        if (pos.* + 4 > buffer.len) {
-            return error.UnexpectedEndOfBuffer;
-        }
-        const end_date = std.mem.readInt(u32, buffer[pos.*..][0..4], .little);
-        // For now, store the raw u32 date value as u64
-        // 0 represents null/undefined end date
-        interval.end_ts = if (end_date == 0) null else end_date;
-        pos.* += 4;
+        // Read end timstamp (0 represents null/undefined end date)
+        const end_ts = try reader.takeInt(u32, .little);
+        interval.end_ts = if (end_ts == 0) null else end_ts;
 
         // Read symbol
-        interval.symbol = try readSymbol(allocator, symbol_cstr_len, buffer, pos);
+        interval.symbol = try readSymbol(allocator, symbol_cstr_len, reader);
     }
 
     return mapping;

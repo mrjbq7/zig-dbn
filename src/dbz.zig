@@ -35,80 +35,70 @@ pub fn readMetadata(allocator: std.mem.Allocator, reader: *std.io.Reader) !Metad
 }
 
 pub fn parseMetadata(allocator: std.mem.Allocator, buffer: []u8) !Metadata {
+    var reader: std.io.Reader = .fixed(buffer);
+
     var metadata = Metadata.init(allocator);
     metadata.symbol_cstr_len = v1.SYMBOL_CSTR_LEN;
     errdefer metadata.deinit();
 
-    var pos: usize = 0;
+    const magic = try reader.take(3);
+    if (!std.mem.eql(u8, magic, "DBZ")) return error.InvalidDbz;
 
-    if (!std.mem.eql(u8, buffer[pos .. pos + 3], "DBZ")) return error.InvalidDbz;
-
-    const version = buffer[pos + 3];
+    const version = try reader.takeByte();
     if (version != SCHEMA_VERSION) return error.InvalidDbz;
     metadata.version = .v1; // XXX: .v0?
 
-    pos += VERSION_CSTR_LEN;
-
     // Read dataset
-    const dataset_slice = buffer[pos .. pos + METADATA_DATASET_CSTR_LEN];
+    const dataset_slice = try reader.take(METADATA_DATASET_CSTR_LEN);
     const dataset_str = std.mem.sliceTo(dataset_slice, 0);
     metadata.dataset = try allocator.dupe(u8, dataset_str);
-    pos += METADATA_DATASET_CSTR_LEN;
 
-    const raw_schema = std.mem.readInt(u16, buffer[pos..][0..2], .little);
+    const raw_schema = try reader.takeInt(u16, .little);
     metadata.schema = try std.meta.intToEnum(Schema, raw_schema);
-    pos += 2;
 
     // Read timestamps
-    if (pos + 24 > buffer.len) return error.UnexpectedEndOfBuffer; // 3 * u64
-    metadata.start = std.mem.readInt(u64, buffer[pos..][0..8], .little);
-    pos += 8;
+    metadata.start = try reader.takeInt(u64, .little);
 
-    const end_ts = std.mem.readInt(u64, buffer[pos..][0..8], .little);
+    const end_ts = try reader.takeInt(u64, .little);
     metadata.end = if (end_ts == constants.UNDEF_TIMESTAMP) null else end_ts;
-    pos += 8;
 
-    const limit_val = std.mem.readInt(u64, buffer[pos..][0..8], .little);
+    const limit_val = try reader.takeInt(u64, .little);
     metadata.limit = if (limit_val == 0) null else limit_val;
-    pos += 8;
 
     // Skip over the deprecated record count
-    pos += 8;
+    try reader.discardAll(8);
 
     // Skip over the unused compression
-    pos += 1;
+    try reader.discardAll(1);
 
     // Read stype_in
-    if (pos + 1 > buffer.len) return error.UnexpectedEndOfBuffer;
-    metadata.stype_in = try std.meta.intToEnum(SType, buffer[pos]);
-    pos += 1;
+    const stype_in = try reader.takeByte();
+    metadata.stype_in = try std.meta.intToEnum(SType, stype_in);
 
     // Read stype_out
-    if (pos + 1 > buffer.len) return error.UnexpectedEndOfBuffer;
-    metadata.stype_out = try std.meta.intToEnum(SType, buffer[pos]);
-    pos += 1;
+    const stype_out = try reader.takeByte();
+    metadata.stype_out = try std.meta.intToEnum(SType, stype_out);
 
-    pos += RESERVED_LEN;
+    try reader.discardAll(RESERVED_LEN);
 
     // XXX: fix this
     var out: std.io.Writer.Allocating = .init(allocator);
     defer out.deinit();
     try out.ensureUnusedCapacity(zstd.default_window_len);
-    var buf_reader: std.io.Reader = .fixed(buffer[pos..]);
-    var zstd_reader = zstd.Decompress.init(&buf_reader, &.{}, .{});
-    const len = try zstd_reader.reader.streamRemaining(&out.writer);
-    std.debug.assert(len <= (buffer.len - pos) * 4); // 4x is arbitrary
+    var zstd_reader = zstd.Decompress.init(&reader, &.{}, .{});
+    _ = try zstd_reader.reader.streamRemaining(&out.writer);
     const zstd_buffer = out.getWritten();
 
-    pos = 0;
-    const schema_definition_length = std.mem.readInt(u32, zstd_buffer[0..4], .little);
-    if (schema_definition_length != 0) return error.InvalidDbz;
-    pos += 4 + schema_definition_length;
+    var new_reader: std.io.Reader = .fixed(zstd_buffer);
 
-    metadata.symbols = try readRepeatedSymbols(allocator, v1.SYMBOL_CSTR_LEN, zstd_buffer, &pos);
-    metadata.partial = try readRepeatedSymbols(allocator, v1.SYMBOL_CSTR_LEN, zstd_buffer, &pos);
-    metadata.not_found = try readRepeatedSymbols(allocator, v1.SYMBOL_CSTR_LEN, zstd_buffer, &pos);
-    metadata.mappings = try readSymbolMappings(allocator, v1.SYMBOL_CSTR_LEN, zstd_buffer, &pos);
+    const schema_definition_length = try new_reader.takeInt(u32, .little);
+    if (schema_definition_length != 0) return error.InvalidDbz;
+    try new_reader.discardAll(schema_definition_length);
+
+    metadata.symbols = try readRepeatedSymbols(allocator, v1.SYMBOL_CSTR_LEN, &new_reader);
+    metadata.partial = try readRepeatedSymbols(allocator, v1.SYMBOL_CSTR_LEN, &new_reader);
+    metadata.not_found = try readRepeatedSymbols(allocator, v1.SYMBOL_CSTR_LEN, &new_reader);
+    metadata.mappings = try readSymbolMappings(allocator, v1.SYMBOL_CSTR_LEN, &new_reader);
 
     return metadata;
 }
