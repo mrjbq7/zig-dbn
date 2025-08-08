@@ -754,30 +754,26 @@ pub const Client = struct {
             headers.content_type = .{ .override = "application/x-www-form-urlencoded" };
         }
 
-        var server_header_buffer: [1024]u8 = undefined;
-        var req = try self.http_client.open(method, uri, .{
+        var storage: std.ArrayListUnmanaged(u8) = .empty;
+
+        const result = try self.http_client.fetch(.{
+            .location = .{ .uri = uri },
+            .method = method,
             .headers = headers,
-            .server_header_buffer = &server_header_buffer,
+            .payload = form_data,
+            .response_storage = .{
+                .list = &storage,
+                .allocator = self.allocator,
+            },
         });
-        defer req.deinit();
 
-        if (method == .POST and form_data != null) {
-            req.transfer_encoding = .{ .content_length = form_data.?.len };
-        }
-        try req.send();
-        if (method == .POST and form_data != null) {
-            try req.writeAll(form_data.?);
-        }
-        try req.finish();
-        try req.wait();
-
-        if (req.response.status != .ok) {
-            std.debug.print("Error: {t}\n", .{req.response.status});
+        if (result.status != .ok) {
+            std.debug.print("Error: {t}\n", .{result.status});
             std.debug.print("URL: {s}\n", .{url});
             if (form_data) |fd| {
                 std.debug.print("Form data: {s}\n", .{fd});
             }
-            return switch (req.response.status) {
+            return switch (result.status) {
                 .unauthorized => error.Unauthorized,
                 .too_many_requests => error.RateLimitExceeded,
                 .internal_server_error, .bad_gateway, .service_unavailable => error.ServerError,
@@ -785,8 +781,7 @@ pub const Client = struct {
             };
         }
 
-        // Return the body, caller is responsible for freeing it
-        return try req.reader().readAllAlloc(self.allocator, 1024 * 1024 * 100); // 100MB max
+        return storage.toOwnedSlice(self.allocator);
     }
 
     pub const CorporateActionIterator = struct {
