@@ -754,17 +754,15 @@ pub const Client = struct {
             headers.content_type = .{ .override = "application/x-www-form-urlencoded" };
         }
 
-        var storage: std.ArrayListUnmanaged(u8) = .empty;
+        var storage: std.Io.Writer.Allocating = .init(self.allocator);
+        defer storage.deinit();
 
         const result = try self.http_client.fetch(.{
             .location = .{ .uri = uri },
             .method = method,
             .headers = headers,
             .payload = form_data,
-            .response_storage = .{
-                .list = &storage,
-                .allocator = self.allocator,
-            },
+            .response_writer = &storage.writer,
         });
 
         if (result.status != .ok) {
@@ -781,7 +779,7 @@ pub const Client = struct {
             };
         }
 
-        return storage.toOwnedSlice(self.allocator);
+        return try storage.toOwnedSlice();
     }
 
     pub const CorporateActionIterator = struct {
