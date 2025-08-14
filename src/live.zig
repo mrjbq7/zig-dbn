@@ -3,22 +3,22 @@ const std = @import("std");
 pub const ALL_SYMBOLS = "ALL_SYMBOLS";
 
 pub fn getHostName(allocator: std.mem.Allocator, code: []const u8) ![]u8 {
-    var hostname = try std.ArrayList(u8).initCapacity(allocator, code.len + 20);
-    defer hostname.deinit();
+    var hostname: std.ArrayList(u8) = try .initCapacity(allocator, code.len + 20);
+    defer hostname.deinit(allocator);
 
     // Convert to lowercase and replace periods with dashes
     for (code) |c| {
         if (c == '.') {
-            try hostname.append('-');
+            try hostname.append(allocator, '-');
         } else {
-            try hostname.append(std.ascii.toLower(c));
+            try hostname.append(allocator, std.ascii.toLower(c));
         }
     }
 
     // Append the domain
-    try hostname.appendSlice(".lsg.databento.com");
+    try hostname.appendSlice(allocator, ".lsg.databento.com");
 
-    return hostname.toOwnedSlice();
+    return hostname.toOwnedSlice(allocator);
 }
 
 test "getHostName" {

@@ -294,15 +294,13 @@ test "Metadata write and read roundtrip" {
     };
 
     // Write to buffer
-    var buffer = std.ArrayList(u8).init(allocator);
+    var buffer: std.Io.Writer.Allocating = .init(allocator);
     defer buffer.deinit();
-    var writer = buffer.writer();
-    var adapter = writer.adaptToNewApi();
 
-    try writeMetadata(&adapter.new_interface, &original_metadata);
+    try writeMetadata(&buffer.writer, &original_metadata);
 
     // Read back from buffer
-    var stream: std.io.Reader = .fixed(buffer.items);
+    var stream: std.io.Reader = .fixed(buffer.written());
     var read_metadata = try readMetadata(allocator, &stream);
     defer read_metadata.deinit();
 

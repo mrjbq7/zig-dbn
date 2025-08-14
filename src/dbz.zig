@@ -87,7 +87,7 @@ pub fn parseMetadata(allocator: std.mem.Allocator, buffer: []u8) !Metadata {
     try out.ensureUnusedCapacity(zstd.default_window_len);
     var zstd_reader = zstd.Decompress.init(&reader, &.{}, .{});
     _ = try zstd_reader.reader.streamRemaining(&out.writer);
-    const zstd_buffer = out.getWritten();
+    const zstd_buffer = out.written();
 
     var new_reader: std.io.Reader = .fixed(zstd_buffer);
 

@@ -353,8 +353,8 @@ pub const ListDatasetsParams = struct {
     end_date: ?[]const u8 = null,
 
     fn buildQueryString(self: *const ListDatasetsParams, allocator: Allocator) ![]u8 {
-        var query = std.ArrayList(u8).init(allocator);
-        var writer = query.writer();
+        var query: std.Io.Writer.Allocating = .init(allocator);
+        var writer = &query.writer;
 
         var first = true;
 
@@ -410,8 +410,8 @@ pub const GetDatasetConditionParams = struct {
     end_date: ?[]const u8 = null,
 
     fn buildQueryString(self: *const GetDatasetConditionParams, allocator: Allocator) ![]u8 {
-        var query = std.ArrayList(u8).init(allocator);
-        var writer = query.writer();
+        var query: std.Io.Writer.Allocating = .init(allocator);
+        var writer = &query.writer;
 
         try writer.print("?dataset={s}", .{self.dataset});
 
@@ -456,8 +456,8 @@ pub const GetRecordCountParams = struct {
     limit: ?u64 = null,
 
     fn buildQueryString(self: *const GetRecordCountParams, allocator: Allocator) ![]u8 {
-        var query = std.ArrayList(u8).init(allocator);
-        var writer = query.writer();
+        var query: std.Io.Writer.Allocating = .init(allocator);
+        var writer = &query.writer;
 
         try writer.print("?dataset={s}", .{self.dataset});
 
@@ -503,8 +503,8 @@ pub const GetCostParams = struct {
     limit: ?u64 = null,
 
     fn buildQueryString(self: *const GetCostParams, allocator: Allocator) ![]u8 {
-        var query = std.ArrayList(u8).init(allocator);
-        var writer = query.writer();
+        var query: std.Io.Writer.Allocating = .init(allocator);
+        var writer = &query.writer;
 
         try writer.print("?dataset={s}", .{self.dataset});
 
@@ -658,8 +658,8 @@ pub const BatchListJobsParams = struct {
     since: ?[]const u8 = null,
 
     fn buildQueryString(self: *const BatchListJobsParams, allocator: Allocator) ![]u8 {
-        var query = std.ArrayList(u8).init(allocator);
-        var writer = query.writer();
+        var query: std.Io.Writer.Allocating = .init(allocator);
+        var writer = &query.writer;
 
         var first = true;
 
@@ -792,7 +792,7 @@ pub const Client = struct {
             for (self.parsed_items.items) |*item| {
                 item.deinit();
             }
-            self.parsed_items.deinit();
+            self.parsed_items.deinit(self.allocator);
             self.allocator.free(self.body);
         }
 
@@ -804,7 +804,7 @@ pub const Client = struct {
                     .ignore_unknown_fields = false,
                     .allocate = .alloc_always,
                 });
-                try self.parsed_items.append(parsed);
+                try self.parsed_items.append(self.allocator, parsed);
                 return parsed.value;
             }
             return null;
@@ -824,7 +824,7 @@ pub const Client = struct {
             .allocator = self.allocator,
             .body = body,
             .lines = std.mem.tokenizeScalar(u8, body, '\n'),
-            .parsed_items = std.ArrayList(Parsed(CorporateAction)).init(self.allocator),
+            .parsed_items = .empty,
         };
     }
 
@@ -838,7 +838,7 @@ pub const Client = struct {
             for (self.parsed_items.items) |*item| {
                 item.deinit();
             }
-            self.parsed_items.deinit();
+            self.parsed_items.deinit(self.allocator);
             self.allocator.free(self.body);
         }
 
@@ -850,7 +850,7 @@ pub const Client = struct {
                     .ignore_unknown_fields = false,
                     .allocate = .alloc_always,
                 });
-                try self.parsed_items.append(parsed);
+                try self.parsed_items.append(self.allocator, parsed);
                 return parsed.value;
             }
             return null;
@@ -870,7 +870,7 @@ pub const Client = struct {
             .allocator = self.allocator,
             .body = body,
             .lines = std.mem.tokenizeScalar(u8, body, '\n'),
-            .parsed_items = std.ArrayList(Parsed(AdjustmentFactor)).init(self.allocator),
+            .parsed_items = .empty,
         };
     }
 
@@ -884,7 +884,7 @@ pub const Client = struct {
             for (self.parsed_items.items) |*item| {
                 item.deinit();
             }
-            self.parsed_items.deinit();
+            self.parsed_items.deinit(self.allocator);
             self.allocator.free(self.body);
         }
 
@@ -896,7 +896,7 @@ pub const Client = struct {
                     .ignore_unknown_fields = false,
                     .allocate = .alloc_always,
                 });
-                try self.parsed_items.append(parsed);
+                try self.parsed_items.append(self.allocator, parsed);
                 return parsed.value;
             }
             return null;
@@ -916,7 +916,7 @@ pub const Client = struct {
             .allocator = self.allocator,
             .body = body,
             .lines = std.mem.tokenizeScalar(u8, body, '\n'),
-            .parsed_items = std.ArrayList(Parsed(SecurityMaster)).init(self.allocator),
+            .parsed_items = .empty,
         };
     }
 
