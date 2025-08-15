@@ -4,9 +4,11 @@ const builtin = @import("builtin");
 const constants = @import("constants.zig");
 const enums = @import("enums.zig");
 const metadata = @import("metadata.zig");
+const flags = @import("flags.zig");
 
 const RType = enums.RType;
 const Version = enums.Version;
+const FlagSet = flags.FlagSet;
 
 pub const RecordHeader = extern struct {
     length: u8,
@@ -37,7 +39,7 @@ pub const Record = union(enum) {
                 inline else => |r| {
                     const info = @typeInfo(@TypeOf(r)).@"struct";
                     inline for (info.fields, 1..) |field, i| {
-                        if (i == 1) {
+                        if (i == 1) { // print the RecordHeader
                             const value = @FieldType(@TypeOf(r), field.name);
                             inline for (@typeInfo(value).@"struct".fields) |header| {
                                 try writer.writeAll(header.name);
@@ -59,14 +61,38 @@ pub const Record = union(enum) {
                 inline else => |r| {
                     const info = @typeInfo(@TypeOf(r)).@"struct";
                     inline for (info.fields, 1..) |field, i| {
-                        if (i == 1) {
-                            const rh = @field(r, field.name);
-                            const value = @FieldType(@TypeOf(r), field.name);
-                            inline for (@typeInfo(value).@"struct".fields) |header| {
-                                try writer.print("{any}{c}", .{ @field(rh, header.name), sep });
+                        const fieldType = @FieldType(@TypeOf(r), field.name);
+                        const fieldValue = @field(r, field.name);
+                        if (i == 1) { // print the RecordHeader
+                            const headerInfo = @typeInfo(fieldType).@"struct";
+                            inline for (headerInfo.fields) |header| {
+                                const headerType = @FieldType(fieldType, header.name);
+                                const headerValue = @field(fieldValue, header.name);
+                                switch (@typeInfo(headerType)) {
+                                    .int => try writer.print("{d}", .{headerValue}),
+                                    .@"enum" => try writer.print("{t}", .{headerValue}),
+                                    else => {
+                                        if (fieldType == FlagSet) {
+                                            try writer.print("{d}", .{headerValue.raw});
+                                        } else {
+                                            try writer.print("{any}", .{headerValue});
+                                        }
+                                    },
+                                }
+                                try writer.writeByte(sep);
                             }
                         } else {
-                            try writer.print("{any}", .{@field(r, field.name)});
+                            switch (@typeInfo(fieldType)) {
+                                .int => try writer.print("{d}", .{fieldValue}),
+                                .@"enum" => try writer.print("{t}", .{fieldValue}),
+                                else => {
+                                    if (fieldType == FlagSet) {
+                                        try writer.print("{d}", .{fieldValue.raw});
+                                    } else {
+                                        try writer.print("{any}", .{fieldValue});
+                                    }
+                                },
+                            }
                             try writer.writeByte(if (i < info.fields.len) sep else '\n');
                         }
                     }
@@ -103,20 +129,25 @@ pub const Record = union(enum) {
                         try writer.writeByte('"');
                         try writer.writeAll(field.name);
                         try writer.writeAll("\":");
-                        if (i == 1) {
+                        if (i == 1) { // print the RecordHeader
                             try writer.writeByte('{');
-                            const rh = @field(r, field.name);
                             const fields = @typeInfo(fieldType).@"struct".fields;
                             inline for (fields, 1..) |header, j| {
-                                const headerType = @FieldType(@TypeOf(rh), header.name);
-                                const headerValue = @field(rh, header.name);
+                                const headerType = @FieldType(fieldType, header.name);
+                                const headerValue = @field(fieldValue, header.name);
                                 try writer.writeByte('"');
                                 try writer.writeAll(header.name);
                                 try writer.writeAll("\":");
                                 switch (@typeInfo(headerType)) {
                                     .int => try writer.print("{d}", .{headerValue}),
                                     .@"enum" => try writer.print("\"{t}\"", .{headerValue}),
-                                    else => try writer.print("\"{any}\"", .{headerValue}),
+                                    else => {
+                                        if (headerType == FlagSet) {
+                                            try writer.print("{d}", .{headerValue.raw});
+                                        } else {
+                                            try writer.print("\"{any}\"", .{fieldValue});
+                                        }
+                                    },
                                 }
                                 if (j < fields.len) {
                                     try writer.writeByte(',');
@@ -127,7 +158,13 @@ pub const Record = union(enum) {
                             switch (@typeInfo(fieldType)) {
                                 .int => try writer.print("{d}", .{fieldValue}),
                                 .@"enum" => try writer.print("\"{t}\"", .{fieldValue}),
-                                else => try writer.print("\"{any}\"", .{fieldValue}),
+                                else => {
+                                    if (fieldType == FlagSet) {
+                                        try writer.print("{d}", .{fieldValue.raw});
+                                    } else {
+                                        try writer.print("\"{any}\"", .{fieldValue});
+                                    }
+                                },
                             }
                             if (i < info.fields.len) {
                                 try writer.writeByte(',');
@@ -152,12 +189,11 @@ pub const Record = union(enum) {
                         try writer.writeByte('.');
                         try writer.writeAll(field.name);
                         try writer.writeAll(" = ");
-                        if (i == 1) {
+                        if (i == 1) { // print the RecordHeader
                             try writer.writeAll(".{ ");
-                            const rh = @field(r, field.name);
                             const fields = @typeInfo(fieldType).@"struct".fields;
                             inline for (fields, 1..) |header, j| {
-                                const headerValue = @field(rh, header.name);
+                                const headerValue = @field(fieldValue, header.name);
                                 try writer.writeByte('.');
                                 try writer.writeAll(header.name);
                                 try writer.writeAll(" = ");
@@ -166,7 +202,7 @@ pub const Record = union(enum) {
                                     try writer.writeAll(", ");
                                 }
                             }
-                            try writer.writeAll(" },");
+                            try writer.writeAll(" }, ");
                         } else {
                             try writer.print("{any}", .{fieldValue});
                             if (i < info.fields.len) {
