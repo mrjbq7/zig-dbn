@@ -465,6 +465,7 @@ pub const ErrorCode = enum(u8) {
     invalid_subscription = 5,
     /// An error occurred in the gateway.
     internal_error = 6,
+    _,
 };
 
 pub const SystemCode = enum(u8) {
@@ -477,4 +478,7 @@ pub const SystemCode = enum(u8) {
     slow_reader_warning = 2,
     /// Indicates a replay subscription has caught up with real-time data.
     replay_completed = 3,
+    /// Signals that all records for interval-based schemas have been published for the given timestamp.
+    end_of_interval = 4,
+    _,
 };
