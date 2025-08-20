@@ -14,6 +14,8 @@ pub const FLAG_MBP: u8 = 1 << 4;
 pub const FLAG_BAD_TS_RECV: u8 = 1 << 3;
 /// Indicates an unrecoverable gap was detected in the channel.
 pub const FLAG_MAYBE_BAD_BOOK: u8 = 1 << 2;
+/// Used to indicate a publisher-specific event.
+pub const FLAG_PUBLISHER_SPECIFIC: u8 = 1 << 1;
 
 pub const FlagSet = extern struct {
     raw: u8,
@@ -67,6 +69,10 @@ pub const FlagSet = extern struct {
         return (self.raw & FLAG_MAYBE_BAD_BOOK) > 0;
     }
 
+    pub fn isPublisherSpecific(self: FlagSet) bool {
+        return (self.raw & FLAG_PUBLISHER_SPECIFIC) > 0;
+    }
+
     // Flag setting methods
     pub fn setLast(self: *FlagSet) void {
         self.raw |= FLAG_LAST;
@@ -90,6 +96,10 @@ pub const FlagSet = extern struct {
 
     pub fn setMaybeBadBook(self: *FlagSet) void {
         self.raw |= FLAG_MAYBE_BAD_BOOK;
+    }
+
+    pub fn setPublisherSpecific(self: *FlagSet) void {
+        self.raw |= FLAG_PUBLISHER_SPECIFIC;
     }
 
     pub fn format(
@@ -130,6 +140,10 @@ pub const FlagSet = extern struct {
             if (!first) try writer.writeAll(" | ");
             try writer.writeAll("MAYBE_BAD_BOOK");
         }
+        if (self.isPublisherSpecific()) {
+            if (!first) try writer.writeAll(" | ");
+            try writer.writeAll("PUBLISHER_SPECIFIC");
+        }
         try writer.print(" ({d})", .{self.raw});
     }
 };
@@ -143,5 +157,5 @@ test {
 
     try writer.print("{f}", .{flags});
 
-    try std.testing.expectEqualStrings("LAST (130)", writer.buffered());
+    try std.testing.expectEqualStrings("LAST | PUBLISHER_SPECIFIC (130)", writer.buffered());
 }
