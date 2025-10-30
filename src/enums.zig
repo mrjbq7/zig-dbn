@@ -465,6 +465,9 @@ pub const ErrorCode = enum(u8) {
     invalid_subscription = 5,
     /// An error occurred in the gateway.
     internal_error = 6,
+    /// No error code was specified or this record was upgraded from a version 1 struct where
+    /// the code field didn't exist.
+    unset = 255,
     _,
 };
 
@@ -480,5 +483,8 @@ pub const SystemCode = enum(u8) {
     replay_completed = 3,
     /// Signals that all records for interval-based schemas have been published for the given timestamp.
     end_of_interval = 4,
+    /// No system code was specified or this record was upgraded from a version 1 struct where
+    /// the code field didn't exist.
+    unset = 255,
     _,
 };
