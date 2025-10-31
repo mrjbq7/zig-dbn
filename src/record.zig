@@ -33,7 +33,7 @@ pub const Record = union(enum) {
     v2: v2.RecordV2,
     v3: v3.RecordV3,
 
-    pub fn printSvHeader(self: Self, writer: *std.io.Writer, sep: u8) !void {
+    pub fn printSvHeader(self: Self, writer: *std.Io.Writer, sep: u8) !void {
         switch (self) {
             inline else => |v| switch (v) {
                 inline else => |r| {
@@ -55,7 +55,7 @@ pub const Record = union(enum) {
         }
     }
 
-    pub fn printSvRow(self: Self, writer: *std.io.Writer, sep: u8) !void {
+    pub fn printSvRow(self: Self, writer: *std.Io.Writer, sep: u8) !void {
         switch (self) {
             inline else => |v| switch (v) {
                 inline else => |r| {
@@ -101,23 +101,23 @@ pub const Record = union(enum) {
         }
     }
 
-    pub fn printCsvHeader(self: Self, writer: *std.io.Writer) !void {
+    pub fn printCsvHeader(self: Self, writer: *std.Io.Writer) !void {
         return self.printSvHeader(writer, ',');
     }
 
-    pub fn printCsvRow(self: Self, writer: *std.io.Writer) !void {
+    pub fn printCsvRow(self: Self, writer: *std.Io.Writer) !void {
         return self.printSvRow(writer, ',');
     }
 
-    pub fn printTsvHeader(self: Self, writer: *std.io.Writer) !void {
+    pub fn printTsvHeader(self: Self, writer: *std.Io.Writer) !void {
         return self.printSvHeader(writer, '\t');
     }
 
-    pub fn printTsvRow(self: Self, writer: *std.io.Writer) !void {
+    pub fn printTsvRow(self: Self, writer: *std.Io.Writer) !void {
         return self.printSvRow(writer, '\t');
     }
 
-    pub fn printJson(self: Self, writer: *std.io.Writer) !void {
+    pub fn printJson(self: Self, writer: *std.Io.Writer) !void {
         switch (self) {
             inline else => |v| switch (v) {
                 inline else => |r| {
@@ -177,7 +177,7 @@ pub const Record = union(enum) {
         }
     }
 
-    pub fn printZon(self: Self, writer: *std.io.Writer) !void {
+    pub fn printZon(self: Self, writer: *std.Io.Writer) !void {
         switch (self) {
             inline else => |v| switch (v) {
                 inline else => |r| {
@@ -217,7 +217,7 @@ pub const Record = union(enum) {
     }
 };
 
-pub fn readRecord(reader: *std.io.Reader, version: Version) !?Record {
+pub fn readRecord(reader: *std.Io.Reader, version: Version) !?Record {
     // 1. read the u8 that indicates length of the record in 32-bit words
     const length_words = reader.peekByte() catch |err| switch (err) {
         error.EndOfStream => return null,

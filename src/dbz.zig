@@ -16,7 +16,7 @@ const SCHEMA_VERSION: u8 = 1;
 const VERSION_CSTR_LEN: usize = 4;
 const RESERVED_LEN: usize = 39;
 
-pub fn readMetadata(allocator: std.mem.Allocator, reader: *std.io.Reader) !Metadata {
+pub fn readMetadata(allocator: std.mem.Allocator, reader: *std.Io.Reader) !Metadata {
     const magic = try reader.takeInt(u32, .little);
     if (magic < 0x184D2A50 or magic > 0x184D2A5F) {
         return error.BadMagic;
@@ -35,7 +35,7 @@ pub fn readMetadata(allocator: std.mem.Allocator, reader: *std.io.Reader) !Metad
 }
 
 pub fn parseMetadata(allocator: std.mem.Allocator, buffer: []u8) !Metadata {
-    var reader: std.io.Reader = .fixed(buffer);
+    var reader: std.Io.Reader = .fixed(buffer);
 
     var metadata = Metadata.init(allocator);
     metadata.symbol_cstr_len = v1.SYMBOL_CSTR_LEN;
@@ -82,14 +82,14 @@ pub fn parseMetadata(allocator: std.mem.Allocator, buffer: []u8) !Metadata {
     try reader.discardAll(RESERVED_LEN);
 
     // XXX: fix this
-    var out: std.io.Writer.Allocating = .init(allocator);
+    var out: std.Io.Writer.Allocating = .init(allocator);
     defer out.deinit();
     try out.ensureUnusedCapacity(zstd.default_window_len);
     var zstd_reader = zstd.Decompress.init(&reader, &.{}, .{});
     _ = try zstd_reader.reader.streamRemaining(&out.writer);
     const zstd_buffer = out.written();
 
-    var new_reader: std.io.Reader = .fixed(zstd_buffer);
+    var new_reader: std.Io.Reader = .fixed(zstd_buffer);
 
     const schema_definition_length = try new_reader.takeInt(u32, .little);
     if (schema_definition_length != 0) return error.InvalidDbz;

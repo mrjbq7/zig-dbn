@@ -17,7 +17,7 @@ fn isUnreserved(c: u8) bool {
     };
 }
 
-fn appendFormValue(writer: *std.io.Writer, field_name: []const u8, value: anytype, first: *bool) !void {
+fn appendFormValue(writer: *std.Io.Writer, field_name: []const u8, value: anytype, first: *bool) !void {
     const T = @TypeOf(value);
 
     switch (@typeInfo(T)) {
@@ -54,7 +54,7 @@ fn appendFormValue(writer: *std.io.Writer, field_name: []const u8, value: anytyp
 }
 
 fn buildFormDataGeneric(comptime T: type, params: *const T, allocator: Allocator) ![]u8 {
-    var writer: std.io.Writer.Allocating = .init(allocator);
+    var writer: std.Io.Writer.Allocating = .init(allocator);
     var first = true;
 
     inline for (std.meta.fields(T)) |field| {

@@ -104,7 +104,7 @@ pub const FlagSet = extern struct {
 
     pub fn format(
         self: FlagSet,
-        writer: *std.io.Writer,
+        writer: *std.Io.Writer,
     ) !void {
         if (self.raw == 0) {
             try writer.writeAll("0");
@@ -151,7 +151,7 @@ pub const FlagSet = extern struct {
 test {
     var buffer: [64]u8 = undefined;
 
-    var writer: std.io.Writer = .fixed(&buffer);
+    var writer: std.Io.Writer = .fixed(&buffer);
 
     const flags: FlagSet = .{ .raw = 130 };
 

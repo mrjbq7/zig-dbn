@@ -19,7 +19,7 @@ pub const RecordIterator = struct {
     file_reader: std.fs.File.Reader,
     zstd_buffer: ?[]u8,
     zstd_reader: ?zstd.Decompress,
-    reader: *std.io.Reader,
+    reader: *std.Io.Reader,
 
     pub fn init(allocator: std.mem.Allocator, path: []const u8) !*Self {
         var self = try allocator.create(Self);

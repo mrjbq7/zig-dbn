@@ -222,11 +222,11 @@ pub const Metadata = struct {
         }
     }
 
-    pub fn readRecord(self: *Metadata, reader: *std.io.Reader) !?Record {
+    pub fn readRecord(self: *Metadata, reader: *std.Io.Reader) !?Record {
         return record.readRecord(reader, self.version);
     }
 
-    pub fn readRecords(self: *Metadata, allocator: std.mem.Allocator, reader: *std.io.Reader) ![]Record {
+    pub fn readRecords(self: *Metadata, allocator: std.mem.Allocator, reader: *std.Io.Reader) ![]Record {
         return record.readRecords(allocator, reader, self.version);
     }
 };
@@ -300,7 +300,7 @@ test "Metadata write and read roundtrip" {
     try writeMetadata(&buffer.writer, &original_metadata);
 
     // Read back from buffer
-    var stream: std.io.Reader = .fixed(buffer.written());
+    var stream: std.Io.Reader = .fixed(buffer.written());
     var read_metadata = try readMetadata(allocator, &stream);
     defer read_metadata.deinit();
 
@@ -349,7 +349,7 @@ test "Metadata write and read roundtrip" {
 }
 
 /// Reads DBN metadata from a reader, including the DBN header and version check.
-pub fn readMetadata(allocator: std.mem.Allocator, reader: *std.io.Reader) !Metadata {
+pub fn readMetadata(allocator: std.mem.Allocator, reader: *std.Io.Reader) !Metadata {
     // Read and validate DBN header (3 bytes)
     var header: [3]u8 = undefined;
     try reader.readSliceAll(&header);
@@ -378,7 +378,7 @@ pub fn readMetadata(allocator: std.mem.Allocator, reader: *std.io.Reader) !Metad
 
 /// Parses metadata from a buffer.
 fn parseMetadata(allocator: std.mem.Allocator, version: Version, buffer: []const u8) !Metadata {
-    var reader: std.io.Reader = .fixed(buffer);
+    var reader: std.Io.Reader = .fixed(buffer);
 
     var metadata = Metadata.init(allocator);
     errdefer metadata.deinit();
@@ -456,7 +456,7 @@ fn parseMetadata(allocator: std.mem.Allocator, version: Version, buffer: []const
 }
 
 /// Reads a repeated list of null-terminated symbol strings.
-pub fn readRepeatedSymbols(allocator: std.mem.Allocator, symbol_cstr_len: usize, reader: *std.io.Reader) ![][]const u8 {
+pub fn readRepeatedSymbols(allocator: std.mem.Allocator, symbol_cstr_len: usize, reader: *std.Io.Reader) ![][]const u8 {
     const count = try reader.takeInt(u32, .little);
 
     const symbols = try allocator.alloc([]const u8, count);
@@ -476,7 +476,7 @@ pub fn readRepeatedSymbols(allocator: std.mem.Allocator, symbol_cstr_len: usize,
 }
 
 /// Reads a single null-terminated symbol string.
-fn readSymbol(allocator: std.mem.Allocator, symbol_cstr_len: usize, reader: *std.io.Reader) ![]const u8 {
+fn readSymbol(allocator: std.mem.Allocator, symbol_cstr_len: usize, reader: *std.Io.Reader) ![]const u8 {
     const symbol_slice = try reader.take(symbol_cstr_len);
     const symbol_str = std.mem.sliceTo(symbol_slice, 0);
 
@@ -488,7 +488,7 @@ fn readSymbol(allocator: std.mem.Allocator, symbol_cstr_len: usize, reader: *std
 }
 
 /// Reads symbol mappings from buffer.
-pub fn readSymbolMappings(allocator: std.mem.Allocator, symbol_cstr_len: usize, reader: *std.io.Reader) ![]SymbolMapping {
+pub fn readSymbolMappings(allocator: std.mem.Allocator, symbol_cstr_len: usize, reader: *std.Io.Reader) ![]SymbolMapping {
     const count = try reader.takeInt(u32, .little);
 
     const mappings = try allocator.alloc(SymbolMapping, count);
@@ -502,7 +502,7 @@ pub fn readSymbolMappings(allocator: std.mem.Allocator, symbol_cstr_len: usize, 
 }
 
 /// Reads a single symbol mapping.
-fn readSymbolMapping(allocator: std.mem.Allocator, symbol_cstr_len: usize, reader: *std.io.Reader) !SymbolMapping {
+fn readSymbolMapping(allocator: std.mem.Allocator, symbol_cstr_len: usize, reader: *std.Io.Reader) !SymbolMapping {
     var mapping: SymbolMapping = undefined;
 
     mapping.raw_symbol = try readSymbol(allocator, symbol_cstr_len, reader);
@@ -529,7 +529,7 @@ fn readSymbolMapping(allocator: std.mem.Allocator, symbol_cstr_len: usize, reade
     return mapping;
 }
 
-pub fn writeMetadata(writer: *std.io.Writer, metadata: *const Metadata) !void {
+pub fn writeMetadata(writer: *std.Io.Writer, metadata: *const Metadata) !void {
     // Calculate total metadata size
     const metadata_size = try calculateMetadataSize(metadata);
 
@@ -617,7 +617,7 @@ fn calculateMetadataSize(metadata: *const Metadata) !usize {
 }
 
 /// Writes a repeated list of null-terminated symbol strings.
-fn writeRepeatedSymbols(writer: *std.io.Writer, symbols: []const []const u8, symbol_cstr_len: usize) !void {
+fn writeRepeatedSymbols(writer: *std.Io.Writer, symbols: []const []const u8, symbol_cstr_len: usize) !void {
     try writer.writeInt(u32, @intCast(symbols.len), .little);
     for (symbols) |symbol| {
         try writeSymbol(writer, symbol, symbol_cstr_len);
@@ -625,7 +625,7 @@ fn writeRepeatedSymbols(writer: *std.io.Writer, symbols: []const []const u8, sym
 }
 
 /// Writes a single null-terminated symbol string.
-fn writeSymbol(writer: *std.io.Writer, symbol: []const u8, symbol_cstr_len: usize) !void {
+fn writeSymbol(writer: *std.Io.Writer, symbol: []const u8, symbol_cstr_len: usize) !void {
     // Use a buffer large enough for any reasonable symbol length
     var symbol_buf: [256]u8 = @splat(0);
     std.debug.assert(symbol_cstr_len <= 256);
@@ -635,7 +635,7 @@ fn writeSymbol(writer: *std.io.Writer, symbol: []const u8, symbol_cstr_len: usiz
 }
 
 /// Writes symbol mappings.
-fn writeSymbolMappings(writer: *std.io.Writer, mappings: []const SymbolMapping, symbol_cstr_len: usize) !void {
+fn writeSymbolMappings(writer: *std.Io.Writer, mappings: []const SymbolMapping, symbol_cstr_len: usize) !void {
     try writer.writeInt(u32, @intCast(mappings.len), .little);
     for (mappings) |mapping| {
         try writeSymbolMapping(writer, &mapping, symbol_cstr_len);
@@ -643,7 +643,7 @@ fn writeSymbolMappings(writer: *std.io.Writer, mappings: []const SymbolMapping, 
 }
 
 /// Writes a single symbol mapping.
-fn writeSymbolMapping(writer: *std.io.Writer, mapping: *const SymbolMapping, symbol_cstr_len: usize) !void {
+fn writeSymbolMapping(writer: *std.Io.Writer, mapping: *const SymbolMapping, symbol_cstr_len: usize) !void {
     try writeSymbol(writer, mapping.raw_symbol, symbol_cstr_len);
     try writer.writeInt(u32, @intCast(mapping.intervals.len), .little);
     for (mapping.intervals) |interval| {
