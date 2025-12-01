@@ -41,7 +41,7 @@ pub fn main() !void {
         std.debug.print("Invalid version number: {s}\n", .{args[3]});
         return;
     } else 3;
-    const version = std.meta.intToEnum(enums.Version, version_number) catch {
+    const version = std.enums.fromInt(enums.Version, version_number) orelse {
         std.debug.print("Invalid version number: {d}\n", .{version_number});
         return;
     };

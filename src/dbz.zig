@@ -54,7 +54,7 @@ pub fn parseMetadata(allocator: std.mem.Allocator, buffer: []u8) !Metadata {
     metadata.dataset = try allocator.dupe(u8, dataset_str);
 
     const raw_schema = try reader.takeInt(u16, .little);
-    metadata.schema = try std.meta.intToEnum(Schema, raw_schema);
+    metadata.schema = std.enums.fromInt(Schema, raw_schema).?;
 
     // Read timestamps
     metadata.start = try reader.takeInt(u64, .little);
@@ -73,11 +73,11 @@ pub fn parseMetadata(allocator: std.mem.Allocator, buffer: []u8) !Metadata {
 
     // Read stype_in
     const stype_in = try reader.takeByte();
-    metadata.stype_in = try std.meta.intToEnum(SType, stype_in);
+    metadata.stype_in = std.enums.fromInt(SType, stype_in).?;
 
     // Read stype_out
     const stype_out = try reader.takeByte();
-    metadata.stype_out = try std.meta.intToEnum(SType, stype_out);
+    metadata.stype_out = std.enums.fromInt(SType, stype_out).?;
 
     try reader.discardAll(RESERVED_LEN);
 

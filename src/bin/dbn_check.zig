@@ -84,7 +84,7 @@ pub fn main() !void {
     for (counts, 0..) |count, i| {
         if (count > 0) {
             const chars = @as(usize, @intFromFloat(60.0 * @as(f64, @floatFromInt(count)) / @as(f64, @floatFromInt(record_count))));
-            const rtype = try std.meta.intToEnum(RType, i);
+            const rtype = std.enums.fromInt(RType, i).?;
             try stdout.print("{s}: {d:<11} │", .{ @tagName(rtype), count });
             for (0..chars) |_| {
                 try stdout.print("■", .{});

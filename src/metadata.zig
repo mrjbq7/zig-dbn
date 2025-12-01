@@ -395,7 +395,7 @@ fn parseMetadata(allocator: std.mem.Allocator, version: Version, buffer: []const
     if (raw_schema == NULL_SCHEMA) {
         metadata.schema = null;
     } else {
-        metadata.schema = try std.meta.intToEnum(Schema, raw_schema);
+        metadata.schema = std.enums.fromInt(Schema, raw_schema).?;
     }
 
     // Read timestamps
@@ -417,12 +417,12 @@ fn parseMetadata(allocator: std.mem.Allocator, version: Version, buffer: []const
     if (stype_in == NULL_STYPE) {
         metadata.stype_in = null;
     } else {
-        metadata.stype_in = try std.meta.intToEnum(SType, stype_in);
+        metadata.stype_in = std.enums.fromInt(SType, stype_in).?;
     }
 
     // Read stype_out
     const stype_out = try reader.takeByte();
-    metadata.stype_out = try std.meta.intToEnum(SType, stype_out);
+    metadata.stype_out = std.enums.fromInt(SType, stype_out).?;
 
     // Read ts_out
     metadata.ts_out = try reader.takeByte() != 0;
