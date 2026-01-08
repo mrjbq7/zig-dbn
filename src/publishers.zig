@@ -104,7 +104,8 @@ pub const Venue = enum(u16) {
     Xeur = 50,
     /// European Energy Exchange
     Xeee = 51,
-    _,
+    /// Cboe Futures Exchange
+    Xcbf = 52,
 };
 
 /// A source of data.
@@ -187,7 +188,8 @@ pub const Dataset = enum(u16) {
     xeur_eobi = 38,
     /// European Energy Exchange EOBI
     xeee_eobi = 39,
-    _,
+    /// Cboe Futures Exchange PITCH
+    xcbf_pitch = 40,
 };
 
 pub const Publisher = enum(u16) {
@@ -399,4 +401,6 @@ pub const Publisher = enum(u16) {
     xeur_eobi_xoff = 103,
     /// European Energy Exchange EOBI - Off-Market Trades
     xeee_eobi_xoff = 104,
+    /// Cboe Futures Exchange
+    xcbf_pitch_xcbf = 105,
 };
